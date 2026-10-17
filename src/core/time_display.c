@@ -135,10 +135,10 @@ static void draw_colon(Framebuffer *fb) {
     fill_rect(fb, x, TOP + 2 * BIG_H / 3 - COLON_DOT / 2, COLON_DOT, COLON_DOT, PIXEL_WHITE);
 }
 
-void time_display_render(Framebuffer *fb, int hour, int minute, int second) {
+void time_display_render(Framebuffer *fb, const LocalTime *now) {
     for (int i = 0; i < FB_WIDTH * FB_HEIGHT; i++) fb->pixels[i] = PIXEL_BLACK;
-    draw_pair(fb, 0, hour, 23);
-    draw_pair(fb, 2, minute, 59);
-    draw_pair(fb, 4, second, 59);
+    draw_pair(fb, 0, now ? now->hour : -1, 23);
+    draw_pair(fb, 2, now ? now->minute : -1, 59);
+    draw_pair(fb, 4, now ? now->second : -1, 59);
     draw_colon(fb);
 }

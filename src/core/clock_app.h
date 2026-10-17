@@ -5,11 +5,12 @@
 #define CLOCK_APP_H
 
 #include "framebuffer.h"
+#include "local_time.h"
 
 typedef struct {
     /* Reads Local time. Returns 0 on success, negative when the time can't
-     * be read. */
-    int (*read_time)(void *ctx, int *hour, int *minute, int *second);
+     * be read (and `now` is then left alone). */
+    int (*read_time)(void *ctx, LocalTime *now);
     /* Shows a finished frame on the screen. */
     void (*present)(void *ctx, const Framebuffer *fb);
     /* Stops the PSP from dimming the screen or going to sleep. */
