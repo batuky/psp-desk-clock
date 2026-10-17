@@ -6,7 +6,7 @@ CORE   := $(wildcard src/core/*.c)
 TESTS  := $(wildcard tests/test_*.c)
 BIN    := $(patsubst tests/%.c,build/%,$(TESTS))
 
-.PHONY: test core-psp-check update-golden clean
+.PHONY: test core-psp-check eboot update-golden clean
 
 test: $(BIN)
 	@for t in $(BIN); do echo "== $$t"; ./$$t || exit 1; done
@@ -24,6 +24,11 @@ core-psp-check:
 	@mkdir -p build
 	@for f in $(CORE); do psp-gcc -std=c11 -Wall -Wextra -Werror -pedantic -Isrc/core -c $$f -o build/psp-check.o || exit 1; done
 	@echo "core compiles with psp-gcc"
+
+# Builds build/psp/EBOOT.PBP with the PSP toolchain.
+eboot:
+	@mkdir -p build/psp
+	cd build/psp && psp-cmake ../.. && $(MAKE)
 
 clean:
 	rm -rf build
