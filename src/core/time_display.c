@@ -64,11 +64,6 @@ static void put(Framebuffer *fb, int x, int y, Pixel color) {
     fb->pixels[y * FB_WIDTH + x] = color;
 }
 
-static void fill_rect(Framebuffer *fb, int x, int y, int w, int h, Pixel color) {
-    for (int row = y; row < y + h; row++)
-        for (int col = x; col < x + w; col++) put(fb, col, row, color);
-}
-
 /* How far a six-cornered bar is cut back from its tip at row (or column) i
  * of its thickness t: 0 along the middle, growing towards the edges so the
  * ends come to a 45 degree point. */
@@ -131,8 +126,8 @@ static void draw_colon(Framebuffer *fb) {
     const DigitCell *cells = time_display_cells();
     int gap_left = cells[1].x + cells[1].w;
     int x = gap_left + (DIGIT_GAP + COLON_W - COLON_DOT) / 2;
-    fill_rect(fb, x, TOP + BIG_H / 3 - COLON_DOT / 2, COLON_DOT, COLON_DOT, PIXEL_WHITE);
-    fill_rect(fb, x, TOP + 2 * BIG_H / 3 - COLON_DOT / 2, COLON_DOT, COLON_DOT, PIXEL_WHITE);
+    fb_fill_rect(fb, x, TOP + BIG_H / 3 - COLON_DOT / 2, COLON_DOT, COLON_DOT, PIXEL_WHITE);
+    fb_fill_rect(fb, x, TOP + 2 * BIG_H / 3 - COLON_DOT / 2, COLON_DOT, COLON_DOT, PIXEL_WHITE);
 }
 
 void time_display_render(Framebuffer *fb, const LocalTime *now) {

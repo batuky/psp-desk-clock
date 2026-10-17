@@ -89,14 +89,6 @@ static unsigned next_code(const unsigned char **cursor) {
     return code;
 }
 
-static void draw_block(Framebuffer *fb, int x, int y, int size, Pixel color) {
-    for (int row = y; row < y + size; row++) {
-        if (row < 0 || row >= FB_HEIGHT) continue;
-        for (int col = x; col < x + size; col++)
-            if (col >= 0 && col < FB_WIDTH) fb->pixels[row * FB_WIDTH + col] = color;
-    }
-}
-
 int bitmap_font_draw_text(Framebuffer *fb, int x, int y, int scale, const char *utf8,
                           Pixel color) {
     const unsigned char *cursor = (const unsigned char *)utf8;
@@ -107,7 +99,7 @@ int bitmap_font_draw_text(Framebuffer *fb, int x, int y, int scale, const char *
         const char *const *rows = glyph ? glyph->rows : MISSING_BOX;
         for (int r = 0; r < FONT_GLYPH_H; r++)
             for (int c = 0; c < FONT_GLYPH_W; c++)
-                if (rows[r][c] == '#') draw_block(fb, x + c * scale, y + r * scale, scale, color);
+                if (rows[r][c] == '#') fb_fill_rect(fb, x + c * scale, y + r * scale, scale, scale, color);
         x += FONT_ADVANCE * scale;
     }
     return x;
