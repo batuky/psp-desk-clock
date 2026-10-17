@@ -94,6 +94,9 @@ static void layout_b_is_the_time_and_one_centred_date_line(void) {
     clock_face_regions(CLOCK_LAYOUT_B, &r);
     /* Digits 84x130, top at y=12, centred. */
     CHECK(r.time.y == 12 && r.time.h == 130);
+    /* Four 84 px digits, two 8 px gaps, and the colon's column (8 px gap plus
+     * twice the 12 px bars). */
+    CHECK(r.time.w == 4 * 84 + 2 * 8 + 8 + 2 * 12);
     CHECK(r.time.x - (FB_WIDTH - r.time.x - r.time.w) <= 1);
     CHECK((FB_WIDTH - r.time.x - r.time.w) - r.time.x <= 1);
     CHECK(r.date_line_count == 1);
@@ -109,6 +112,9 @@ static void layout_d_is_the_time_the_date_lower_left_and_the_calendar_lower_righ
     clock_face_regions(CLOCK_LAYOUT_D, &r);
     /* Digits 80x120, top at y=8, centred. */
     CHECK(r.time.y == 8 && r.time.h == 120);
+    /* Four 80 px digits, two 8 px gaps, and the colon's column (8 px gap plus
+     * twice the 11 px bars). */
+    CHECK(r.time.w == 4 * 80 + 2 * 8 + 8 + 2 * 11);
     CHECK(abs((r.time.x + r.time.w / 2) - FB_WIDTH / 2) <= 1);
     CHECK(r.date_line_count == 2);
     CHECK(r.has_calendar == 1);
