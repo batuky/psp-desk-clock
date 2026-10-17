@@ -1,6 +1,6 @@
-/* PSP layer: the only code that touches the hardware. Everything it draws
- * comes from the pure core in src/core (ADR 0001); it stays in user mode
- * (ADR 0002). */
+/* PSP layer: the only code that touches the hardware. It fills in the
+ * ClockPlatform that the pure core's main loop runs against (ADR 0001) and
+ * stays in user mode (ADR 0002). */
 #include <pspdisplay.h>
 #include <pspge.h>
 #include <pspkernel.h>
@@ -8,7 +8,7 @@
 #include <psprtc.h>
 #include <string.h>
 
-#include "time_display.h"
+#include "clock_app.h"
 
 PSP_MODULE_INFO("psp-desk-clock", PSP_MODULE_USER, 1, 0);
 PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_USER);
@@ -24,6 +24,8 @@ PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_USER);
 
 static Framebuffer frame;
 
+/* HOME: the exit callback ends the program itself, so the loop never has to
+ * ask. */
 static int exit_callback(int arg1, int arg2, void *common) {
     (void)arg1;
     (void)arg2;
@@ -46,15 +48,41 @@ static void setup_exit_callback(void) {
     if (thread >= 0) sceKernelStartThread(thread, 0, NULL);
 }
 
-static void present(void *vram) {
+static int psp_read_time(void *ctx, int *hour, int *minute, int *second) {
+    ScePspDateTime now;
+    (void)ctx;
+    if (sceRtcGetCurrentClockLocalTime(&now) < 0) return -1;
+    *hour = now.hour;
+    *minute = now.minute;
+    *second = now.second;
+    return 0;
+}
+
+static void psp_present(void *ctx, const Framebuffer *fb) {
+    Pixel *vram = ctx;
     for (int y = 0; y < FB_HEIGHT; y++)
-        memcpy((Pixel *)vram + y * VRAM_STRIDE, &frame.pixels[y * FB_WIDTH],
-               FB_WIDTH * sizeof(Pixel));
+        memcpy(vram + y * VRAM_STRIDE, &fb->pixels[y * FB_WIDTH], FB_WIDTH * sizeof(Pixel));
+}
+
+static void psp_keep_awake(void *ctx) {
+    (void)ctx;
+    scePowerTick(PSP_POWER_TICK_ALL);
+}
+
+static void psp_wait(void *ctx) {
+    (void)ctx;
+    sceKernelDelayThread(POLL_USEC);
+}
+
+static int psp_exit_requested(void *ctx) {
+    (void)ctx;
+    return 0;
 }
 
 int main(void) {
-    void *vram = (void *)(0x40000000u | (unsigned int)sceGeEdramGetAddr());
-    int last_second = -1;
+    Pixel *vram = (Pixel *)(0x40000000u | (unsigned int)sceGeEdramGetAddr());
+    ClockPlatform platform = {psp_read_time, psp_present, psp_keep_awake,
+                              psp_wait, psp_exit_requested, vram};
 
     setup_exit_callback();
     scePowerSetClockFrequency(CLOCK_PLL, CLOCK_CPU, CLOCK_BUS);
@@ -62,21 +90,6 @@ int main(void) {
     sceDisplaySetFrameBuf(vram, VRAM_STRIDE, PSP_DISPLAY_PIXEL_FORMAT_8888,
                           PSP_DISPLAY_SETBUF_NEXTFRAME);
 
-    for (;;) {
-        ScePspDateTime now;
-        /* Draw only when the second changes. If the RTC can't be read, show
-         * dashes instead of a wrong time. */
-        if (sceRtcGetCurrentClockLocalTime(&now) < 0) now.second = 0xFFFF;
-        if ((int)now.second != last_second) {
-            last_second = now.second;
-            if (now.second == 0xFFFF)
-                time_display_render(&frame, -1, -1, -1);
-            else
-                time_display_render(&frame, now.hour, now.minute, now.second);
-            present(vram);
-        }
-        scePowerTick(PSP_POWER_TICK_ALL);
-        sceKernelDelayThread(POLL_USEC);
-    }
+    clock_app_run(&platform, &frame);
     return 0;
 }
