@@ -8,7 +8,9 @@
 
 #include "local_time.h"
 
-/* Room for the longest Date line, with its terminating NUL. */
+/* Room for any Date line with its terminating NUL. The longest, such as
+ * "14.10.2026 Çarşamba", is 21 bytes plus the NUL (Ç and ş take two bytes
+ * each); the rest is spare. */
 #define DATE_LINE_MAX 32
 
 /* Writes the Date line for the date in `now` into `out`. When `now` is NULL

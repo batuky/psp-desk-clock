@@ -1,5 +1,6 @@
 #include <string.h>
 
+#include "bitmap_font.h"
 #include "date_line.h"
 #include "minitest.h"
 
@@ -72,8 +73,22 @@ static void a_buffer_that_is_too_small_gives_an_empty_string(void) {
     CHECK(date_line_text(&t, out, 0) == -1); /* nothing to write into */
 }
 
+/* The Date line and the font must agree: everything the Date line can say
+ * has a glyph. Checked for every weekday and for the dashes. */
+static void everything_the_date_line_says_can_be_drawn_in_the_font(void) {
+    char out[DATE_LINE_MAX];
+    for (int day = 12; day <= 18; day++) { /* 12-18 October 2026 is Monday to Sunday */
+        LocalTime t = {2026, 10, day, 12, 0, 0};
+        CHECK(date_line_text(&t, out, sizeof out) > 0);
+        CHECK(bitmap_font_can_draw(out));
+    }
+    CHECK(date_line_text(NULL, out, sizeof out) > 0);
+    CHECK(bitmap_font_can_draw(out));
+}
+
 int main(void) {
     RUN(the_date_line_shows_day_month_year_and_the_weekday);
+    RUN(everything_the_date_line_says_can_be_drawn_in_the_font);
     RUN(every_weekday_has_its_turkish_name);
     RUN(leap_days_and_year_changes_land_on_the_right_weekday);
     RUN(a_missing_or_impossible_date_shows_dashes);

@@ -80,6 +80,11 @@ static unsigned next_code(const unsigned char **cursor) {
         if ((s[i] & 0xC0) != 0x80) return UNKNOWN_CODE;
         code = (code << 6) | (s[i] & 0x3Fu);
     }
+    /* Reject what UTF-8 forbids: a value written with more bytes than it
+     * needs (overlong), the surrogate range, and anything past U+10FFFF. */
+    if ((length == 3 && code < 0x800u) || (length == 4 && code < 0x10000u) ||
+        (code >= 0xD800u && code <= 0xDFFFu) || code > 0x10FFFFu)
+        return UNKNOWN_CODE;
     *cursor = s + length;
     return code;
 }

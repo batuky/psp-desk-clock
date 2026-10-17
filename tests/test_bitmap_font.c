@@ -173,6 +173,25 @@ static void a_character_without_a_glyph_is_drawn_as_a_box(void) {
     CHECK(!bitmap_font_can_draw("\xC3"));
 }
 
+/* Encodings UTF-8 forbids must never be taken for a real character: an
+ * overlong form of a space, a surrogate, a value past U+10FFFF. Each bad
+ * byte is drawn as its own box. */
+static void forbidden_utf8_is_never_taken_for_a_real_character(void) {
+    static const char *const FORBIDDEN[] = {
+        "\xE0\x81\xA0",     /* overlong 3-byte form of U+0020 */
+        "\xF0\x80\x80\xA0", /* overlong 4-byte form of U+0020 */
+        "\xC0\xA0",         /* overlong 2-byte form of U+0020 */
+        "\xED\xA0\x80",     /* surrogate U+D800 */
+        "\xF4\x90\x80\x80", /* U+110000, past the last code point */
+    };
+    for (int i = 0; i < (int)(sizeof FORBIDDEN / sizeof FORBIDDEN[0]); i++) {
+        clear();
+        CHECK(!bitmap_font_can_draw(FORBIDDEN[i]));
+        CHECK(bitmap_font_draw_text(&fb, 0, 0, 1, FORBIDDEN[i], PIXEL_WHITE) ==
+              (int)strlen(FORBIDDEN[i]) * FONT_ADVANCE);
+    }
+}
+
 static void the_date_line_alphabet_can_be_drawn(void) {
     CHECK(bitmap_font_can_draw("17.10.2026 Cumartesi"));
     CHECK(bitmap_font_can_draw("Pazartesi"));
@@ -210,6 +229,7 @@ int main(void) {
     RUN(turkish_letters_are_their_plain_letter_plus_a_mark);
     RUN(text_is_clipped_at_the_screen_edges);
     RUN(a_character_without_a_glyph_is_drawn_as_a_box);
+    RUN(forbidden_utf8_is_never_taken_for_a_real_character);
     RUN(the_date_line_alphabet_can_be_drawn);
     RUN(the_font_matches_the_golden_image);
     return mt_report();
