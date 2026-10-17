@@ -1,0 +1,29 @@
+# Build output
+build/
+*.o
+*.a
+*.elf
+*.prx
+*.sfo
+*.SFO
+*.pbp
+*.PBP
+EBOOT.PBP
+PARAM.SFO
+*.d
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local scratch
+.scratch/
+.env
