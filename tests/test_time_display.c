@@ -1,25 +1,43 @@
-#include <stdlib.h>
 #include <string.h>
 
 #include "minitest.h"
-#include "ppm.h"
 #include "time_display.h"
 
 static Framebuffer fb;
 
-/* Start every render from garbage so a test can't pass on leftovers. */
-static void render(int h, int m, int s) {
-    LocalTime now = {2026, 10, 17, h, m, s};
-    memset(&fb, 0x5A, sizeof fb);
-    time_display_render(&fb, &now);
+/* The two shapes the Clock face uses (layouts B and D), spelled out here so
+ * the tests do not depend on the compositor. */
+static const TimeDisplayShape SHAPE_B = {84, 130, 12, 3, 12};
+static const TimeDisplayShape SHAPE_D = {80, 120, 11, 3, 8};
+
+static const TimeDisplayShape *shape = &SHAPE_B;
+static DigitCell cells[TD_DIGIT_COUNT];
+
+static void use_shape(const TimeDisplayShape *which) {
+    shape = which;
+    time_display_cells(shape, cells);
+}
+
+static void clear(void) {
+    for (int i = 0; i < FB_WIDTH * FB_HEIGHT; i++) fb.pixels[i] = PIXEL_BLACK;
+}
+
+/* Draws onto a black screen. The seconds vary between renders only to prove
+ * they are never shown. */
+static void render(int h, int m) {
+    LocalTime now = {2026, 10, 17, h, m, (h * 7 + m * 13) % 60};
+    clear();
+    time_display_draw(&fb, shape, &now);
 }
 
 static Pixel at(int x, int y) { return fb.pixels[y * FB_WIDTH + x]; }
 
-static void background_is_black(void) {
-    render(0, 0, 0);
-    CHECK_HEX(at(0, 0), 0xFF000000);
-    CHECK_HEX(at(FB_WIDTH - 1, FB_HEIGHT - 1), 0xFF000000);
+static void drawing_leaves_the_rest_of_the_screen_alone(void) {
+    LocalTime now = {2026, 10, 17, 12, 34, 56};
+    memset(&fb, 0x5A, sizeof fb);
+    time_display_draw(&fb, shape, &now);
+    CHECK_HEX(at(0, 0), 0x5A5A5A5A);
+    CHECK_HEX(at(FB_WIDTH - 1, FB_HEIGHT - 1), 0x5A5A5A5A);
 }
 
 /* Independent source of truth: the digits as the familiar seven-segment
@@ -72,7 +90,7 @@ static void segment_probe(const DigitCell *c, int seg, int *px, int *py) {
 /* Lit segments are exactly white; a segment that is not lit is not drawn,
  * so its centre stays black. */
 static void expect_cell(int cell, int lit_mask) {
-    const DigitCell *c = &time_display_cells()[cell];
+    const DigitCell *c = &cells[cell];
     for (int seg = A; seg <= G; seg <<= 1) {
         int px, py;
         segment_probe(c, seg, &px, &py);
@@ -90,80 +108,83 @@ static void expect_digits(int cell, int value) {
 
 static void hours_show_their_digits(void) {
     for (int h = 0; h < 24; h++) {
-        render(h, 0, 0);
+        render(h, 0);
         expect_digits(0, h);
     }
 }
 
 static void minutes_show_their_digits(void) {
     for (int m = 0; m < 60; m++) {
-        render(0, m, 0);
+        render(0, m);
         expect_digits(2, m);
     }
 }
 
-static void seconds_show_their_digits(void) {
-    for (int s = 0; s < 60; s++) {
-        render(0, 0, s);
-        expect_digits(4, s);
-    }
-}
-
 static void out_of_range_components_show_a_dash(void) {
-    /* Each bad component becomes a dash; good ones next to it still render. */
-    render(24, 34, 56);
+    LocalTime now = {2026, 10, 17, 24, 34, 56};
+    /* Each bad component becomes a dash; a good one next to it still renders. */
+    clear();
+    time_display_draw(&fb, shape, &now);
     expect_cell(0, DASH);
     expect_cell(1, DASH);
     expect_digits(2, 34);
-    expect_digits(4, 56);
 
-    render(-1, 60, 7);
-    expect_cell(0, DASH);
-    expect_cell(1, DASH);
+    now.hour = -1;
+    now.minute = 60;
+    clear();
+    time_display_draw(&fb, shape, &now);
+    for (int cell = 0; cell < TD_DIGIT_COUNT; cell++) expect_cell(cell, DASH);
+
+    now.hour = 12;
+    now.minute = 100;
+    clear();
+    time_display_draw(&fb, shape, &now);
+    expect_digits(0, 12);
     expect_cell(2, DASH);
     expect_cell(3, DASH);
-    expect_digits(4, 7);
-
-    render(12, 34, 100);
-    expect_digits(0, 12);
-    expect_digits(2, 34);
-    expect_cell(4, DASH);
-    expect_cell(5, DASH);
 }
 
 static void an_unreadable_clock_shows_a_dash_in_every_cell(void) {
-    memset(&fb, 0x5A, sizeof fb);
-    time_display_render(&fb, NULL);
+    clear();
+    time_display_draw(&fb, shape, NULL);
     for (int cell = 0; cell < TD_DIGIT_COUNT; cell++) expect_cell(cell, DASH);
 }
 
-static void seconds_are_smaller_and_share_the_bottom_edge(void) {
-    const DigitCell *c = time_display_cells();
-    CHECK(c[4].w < c[0].w && c[4].h < c[0].h);
-    CHECK(c[5].w == c[4].w && c[5].h == c[4].h);
-    CHECK(c[4].y + c[4].h == c[0].y + c[0].h);
+/* The seconds are not displayed: changing them changes nothing. */
+static void seconds_are_not_shown(void) {
+    static Framebuffer first;
+    render(12, 34);
+    first = fb;
+    for (int sec = 0; sec < 60; sec++) {
+        LocalTime now = {2026, 10, 17, 12, 34, sec};
+        clear();
+        time_display_draw(&fb, shape, &now);
+        CHECK(memcmp(&fb, &first, sizeof fb) == 0);
+    }
 }
 
-/* The Time display spans the top of the screen, centred, and leaves the
- * lower half free for the Date line and the Month calendar. */
-static void time_display_spans_the_top_and_leaves_the_bottom_free(void) {
-    const DigitCell *c = time_display_cells();
-    int left = c[0].x, right = c[TD_DIGIT_COUNT - 1].x + c[TD_DIGIT_COUNT - 1].w;
-    CHECK(left >= 8);
-    CHECK(FB_WIDTH - right >= 8);
-    CHECK(left - (FB_WIDTH - right) <= 1 && (FB_WIDTH - right) - left <= 1); /* centred */
-    CHECK(right - left >= FB_WIDTH * 9 / 10 - 40);                           /* wide */
+static void cells_follow_the_shape_and_share_one_row(void) {
     for (int i = 0; i < TD_DIGIT_COUNT; i++) {
-        CHECK(c[i].y >= 0);
-        CHECK(c[i].y + c[i].h <= FB_HEIGHT / 2 - 8); /* top half only */
+        CHECK(cells[i].w == shape->digit_w && cells[i].h == shape->digit_h);
+        CHECK(cells[i].t == shape->thickness && cells[i].g == shape->corner_gap);
+        CHECK(cells[i].y == shape->top);
     }
-    CHECK(c[0].w >= 64 && c[0].h >= 100);            /* big enough to read across a desk */
+}
+
+/* The digits are centred across the screen, in reading order without
+ * overlap, and stay on the screen. */
+static void digits_are_centred_in_order_and_on_screen(void) {
+    int left = cells[0].x, right = cells[TD_DIGIT_COUNT - 1].x + cells[TD_DIGIT_COUNT - 1].w;
+    CHECK(left >= 0 && right <= FB_WIDTH);
+    CHECK(left - (FB_WIDTH - right) <= 1 && (FB_WIDTH - right) - left <= 1);
+    CHECK(shape->top >= 0 && shape->top + shape->digit_h <= FB_HEIGHT);
+    for (int i = 1; i < TD_DIGIT_COUNT; i++) CHECK(cells[i].x >= cells[i - 1].x + cells[i - 1].w);
 }
 
 static void colon_separates_hours_from_minutes(void) {
-    const DigitCell *c = time_display_cells();
+    const DigitCell *c = cells;
     int x = (c[1].x + c[1].w + c[2].x) / 2;
-    render(12, 34, 56);
+    render(12, 34);
     CHECK_HEX(at(x, c[0].y + c[0].h / 3), 0xFFFFFFFF);
     CHECK_HEX(at(x, c[0].y + 2 * c[0].h / 3), 0xFFFFFFFF);
     CHECK_HEX(at(x, c[0].y + c[0].h / 2), 0xFF000000); /* gap between dots */
@@ -196,9 +217,9 @@ static void column_extent(int x, int y0, int y1, int *first, int *last) {
 }
 
 static void horizontal_segments_taper_to_a_point(void) {
-    const DigitCell *c = &time_display_cells()[3];
+    const DigitCell *c = &cells[3];
     int top_first, top_last, mid_first, mid_last;
-    render(0, 8, 0);
+    render(0, 8);
     row_extent(c, c->y, &top_first, &top_last);                /* edge row */
     row_extent(c, c->y + c->t / 2, &mid_first, &mid_last);     /* centre row */
     CHECK(top_first >= 0);
@@ -207,11 +228,11 @@ static void horizontal_segments_taper_to_a_point(void) {
 }
 
 static void vertical_segments_taper_to_a_point(void) {
-    const DigitCell *c = &time_display_cells()[3];
+    const DigitCell *c = &cells[3];
     int edge_x = c->x + c->w - 1;                       /* outer edge column */
     int centre_x = c->x + c->w - c->t + c->t / 2;       /* bar's centre column */
     int edge_first, edge_last, centre_first, centre_last;
-    render(0, 8, 0);
+    render(0, 8);
     /* Only the lower half of the upper-right bar: clear of the top bar, so
      * the scan sees this one segment's end. */
     column_extent(edge_x, c->y + c->h / 4, c->y + c->h / 2, &edge_first, &edge_last);
@@ -221,38 +242,37 @@ static void vertical_segments_taper_to_a_point(void) {
 }
 
 static void neighbouring_segments_leave_the_corner_open(void) {
-    const DigitCell *c = &time_display_cells()[3];
+    const DigitCell *c = &cells[3];
     int left = c->x + c->t / 2, right = c->x + c->w - c->t + c->t / 2;
     int top = c->y + c->t / 2, bottom = c->y + c->h - c->t + c->t / 2;
-    render(0, 8, 0);
+    render(0, 8);
     CHECK_HEX(at(left, top), 0xFF000000);
     CHECK_HEX(at(right, top), 0xFF000000);
     CHECK_HEX(at(left, bottom), 0xFF000000);
     CHECK_HEX(at(right, bottom), 0xFF000000);
 }
 
-/* Golden image of 12:34:56. Written once and approved by eye; regenerate
- * with `make update-golden` and review the image before committing. */
-static void time_display_matches_the_golden_image(void) {
-    const char *path = "tests/golden/time_12_34_56.ppm";
-    render(12, 34, 56);
-    if (getenv("UPDATE_GOLDEN")) CHECK(ppm_write(path, &fb));
-    CHECK(ppm_matches(path, &fb));
-}
-
-int main(void) {
-    RUN(background_is_black);
+/* Every check above holds for both shapes of the Clock face. */
+static void run_all(const TimeDisplayShape *which) {
+    use_shape(which);
+    RUN(drawing_leaves_the_rest_of_the_screen_alone);
     RUN(hours_show_their_digits);
     RUN(minutes_show_their_digits);
-    RUN(seconds_show_their_digits);
     RUN(out_of_range_components_show_a_dash);
     RUN(an_unreadable_clock_shows_a_dash_in_every_cell);
-    RUN(seconds_are_smaller_and_share_the_bottom_edge);
-    RUN(time_display_spans_the_top_and_leaves_the_bottom_free);
+    RUN(seconds_are_not_shown);
+    RUN(cells_follow_the_shape_and_share_one_row);
+    RUN(digits_are_centred_in_order_and_on_screen);
     RUN(colon_separates_hours_from_minutes);
     RUN(horizontal_segments_taper_to_a_point);
     RUN(vertical_segments_taper_to_a_point);
     RUN(neighbouring_segments_leave_the_corner_open);
-    RUN(time_display_matches_the_golden_image);
+}
+
+int main(void) {
+    puts("-- shape of layout B");
+    run_all(&SHAPE_B);
+    puts("-- shape of layout D");
+    run_all(&SHAPE_D);
     return mt_report();
 }

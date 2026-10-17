@@ -17,47 +17,28 @@ static const unsigned char DIGIT_SEGMENTS[10] = {
     SEG_A | SEG_B | SEG_C | SEG_D | SEG_F | SEG_G,
 };
 
-/* The Time display spans the top of the screen, centred. Hours and minutes
- * are big; seconds are smaller and share the bottom edge. The lower half of
- * the screen is left for the Date line and the Month calendar. */
-#define BIG_W 70
-#define BIG_H 110
-#define BIG_T 10 /* segment thickness */
-#define BIG_G 3  /* gap at shared corners */
-#define SMALL_W 44
-#define SMALL_H 72
-#define SMALL_T 6
-#define SMALL_G 2
-#define TOP 8
+/* Space between neighbouring digits, and the width of the colon's column
+ * beyond that (twice the segment thickness, so the dots scale with the
+ * digits). */
 #define DIGIT_GAP 8
-#define COLON_W 24
-#define COLON_DOT 12
-#define SECONDS_GAP 14
-#define SMALL_GAP 8
 
-#define CLOCK_W (4 * BIG_W + 2 * DIGIT_GAP + (DIGIT_GAP + COLON_W) + SECONDS_GAP + \
-                 2 * SMALL_W + SMALL_GAP)
-#define LEFT ((FB_WIDTH - CLOCK_W) / 2)
+static int colon_width(const TimeDisplayShape *shape) { return 2 * shape->thickness; }
 
-/* Left edge of each digit cell, in reading order. */
-#define X_HOUR_TENS LEFT
-#define X_HOUR_UNITS (X_HOUR_TENS + BIG_W + DIGIT_GAP)
-#define X_MINUTE_TENS (X_HOUR_UNITS + BIG_W + DIGIT_GAP + COLON_W)
-#define X_MINUTE_UNITS (X_MINUTE_TENS + BIG_W + DIGIT_GAP)
-#define X_SECOND_TENS (X_MINUTE_UNITS + BIG_W + SECONDS_GAP)
-#define X_SECOND_UNITS (X_SECOND_TENS + SMALL_W + SMALL_GAP)
-#define SMALL_TOP (TOP + BIG_H - SMALL_H)
+void time_display_cells(const TimeDisplayShape *shape, DigitCell cells[TD_DIGIT_COUNT]) {
+    int pair = 2 * shape->digit_w + DIGIT_GAP;
+    int colon_gap = DIGIT_GAP + colon_width(shape);
+    int left = (FB_WIDTH - (2 * pair + colon_gap)) / 2;
+    int x[TD_DIGIT_COUNT];
 
-#define BIG_CELL(x) {(x), TOP, BIG_W, BIG_H, BIG_T, BIG_G}
-#define SMALL_CELL(x) {(x), SMALL_TOP, SMALL_W, SMALL_H, SMALL_T, SMALL_G}
-
-const DigitCell *time_display_cells(void) {
-    static const DigitCell cells[TD_DIGIT_COUNT] = {
-        BIG_CELL(X_HOUR_TENS),     BIG_CELL(X_HOUR_UNITS),
-        BIG_CELL(X_MINUTE_TENS),   BIG_CELL(X_MINUTE_UNITS),
-        SMALL_CELL(X_SECOND_TENS), SMALL_CELL(X_SECOND_UNITS),
-    };
-    return cells;
+    x[0] = left;
+    x[1] = x[0] + shape->digit_w + DIGIT_GAP;
+    x[2] = x[1] + shape->digit_w + colon_gap;
+    x[3] = x[2] + shape->digit_w + DIGIT_GAP;
+    for (int i = 0; i < TD_DIGIT_COUNT; i++) {
+        DigitCell c = {x[i], shape->top, shape->digit_w, shape->digit_h, shape->thickness,
+                       shape->corner_gap};
+        cells[i] = c;
+    }
 }
 
 static void put(Framebuffer *fb, int x, int y, Pixel color) {
@@ -115,25 +96,25 @@ static void draw_cell(Framebuffer *fb, const DigitCell *c, int lit_mask) {
 }
 
 /* Draws a two-digit value, or a dash in both cells when it is out of range. */
-static void draw_pair(Framebuffer *fb, int first_cell, int value, int max) {
-    const DigitCell *cells = time_display_cells();
+static void draw_pair(Framebuffer *fb, const DigitCell *cells, int value, int max) {
     int valid = value >= 0 && value <= max;
-    draw_cell(fb, &cells[first_cell], valid ? DIGIT_SEGMENTS[value / 10] : SEG_G);
-    draw_cell(fb, &cells[first_cell + 1], valid ? DIGIT_SEGMENTS[value % 10] : SEG_G);
+    draw_cell(fb, &cells[0], valid ? DIGIT_SEGMENTS[value / 10] : SEG_G);
+    draw_cell(fb, &cells[1], valid ? DIGIT_SEGMENTS[value % 10] : SEG_G);
 }
 
-static void draw_colon(Framebuffer *fb) {
-    const DigitCell *cells = time_display_cells();
+static void draw_colon(Framebuffer *fb, const TimeDisplayShape *shape, const DigitCell *cells) {
+    int dot = shape->thickness;
     int gap_left = cells[1].x + cells[1].w;
-    int x = gap_left + (DIGIT_GAP + COLON_W - COLON_DOT) / 2;
-    fb_fill_rect(fb, x, TOP + BIG_H / 3 - COLON_DOT / 2, COLON_DOT, COLON_DOT, PIXEL_WHITE);
-    fb_fill_rect(fb, x, TOP + 2 * BIG_H / 3 - COLON_DOT / 2, COLON_DOT, COLON_DOT, PIXEL_WHITE);
+    int x = gap_left + (DIGIT_GAP + colon_width(shape) - dot) / 2;
+    int h = shape->digit_h;
+    fb_fill_rect(fb, x, shape->top + h / 3 - dot / 2, dot, dot, PIXEL_WHITE);
+    fb_fill_rect(fb, x, shape->top + 2 * h / 3 - dot / 2, dot, dot, PIXEL_WHITE);
 }
 
-void time_display_render(Framebuffer *fb, const LocalTime *now) {
-    for (int i = 0; i < FB_WIDTH * FB_HEIGHT; i++) fb->pixels[i] = PIXEL_BLACK;
-    draw_pair(fb, 0, now ? now->hour : -1, 23);
-    draw_pair(fb, 2, now ? now->minute : -1, 59);
-    draw_pair(fb, 4, now ? now->second : -1, 59);
-    draw_colon(fb);
+void time_display_draw(Framebuffer *fb, const TimeDisplayShape *shape, const LocalTime *now) {
+    DigitCell cells[TD_DIGIT_COUNT];
+    time_display_cells(shape, cells);
+    draw_pair(fb, &cells[0], now ? now->hour : -1, 23);
+    draw_pair(fb, &cells[2], now ? now->minute : -1, 59);
+    draw_colon(fb, shape, cells);
 }

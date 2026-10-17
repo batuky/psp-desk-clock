@@ -93,6 +93,6 @@ int main(void) {
     sceDisplaySetFrameBuf(vram, VRAM_STRIDE, PSP_DISPLAY_PIXEL_FORMAT_8888,
                           PSP_DISPLAY_SETBUF_NEXTFRAME);
 
-    clock_app_run(&platform, &frame);
+    clock_app_run(&platform, &frame, CLOCK_LAYOUT_D);
     return 0;
 }
