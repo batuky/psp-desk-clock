@@ -22,7 +22,7 @@ update-golden: $(BIN)
 # The core must also compile with the PSP toolchain (no hosted-only code).
 core-psp-check:
 	@mkdir -p build
-	@for f in $(CORE); do psp-gcc -std=c11 -Wall -Wextra -Werror -Isrc/core -c $$f -o build/psp-check.o || exit 1; done
+	@for f in $(CORE); do psp-gcc -std=c11 -Wall -Wextra -Werror -pedantic -Isrc/core -c $$f -o build/psp-check.o || exit 1; done
 	@echo "core compiles with psp-gcc"
 
 clean:

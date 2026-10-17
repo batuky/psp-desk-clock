@@ -37,25 +37,24 @@ static const unsigned char DIGIT_SEGMENTS[10] = {
 #define SMALL_GAP 6
 #define COLON_DOT 10
 
+/* Left edge of each digit cell, in reading order. */
+#define X_HOUR_TENS LEFT
+#define X_HOUR_UNITS (X_HOUR_TENS + BIG_W + DIGIT_GAP)
+#define X_MINUTE_TENS (X_HOUR_UNITS + BIG_W + DIGIT_GAP + COLON_W)
+#define X_MINUTE_UNITS (X_MINUTE_TENS + BIG_W + DIGIT_GAP)
+#define X_SECOND_TENS (X_MINUTE_UNITS + BIG_W + SECONDS_GAP)
+#define X_SECOND_UNITS (X_SECOND_TENS + SMALL_W + SMALL_GAP)
+#define SMALL_TOP (TOP + BIG_H - SMALL_H)
+
+#define BIG_CELL(x) {(x), TOP, BIG_W, BIG_H, BIG_T}
+#define SMALL_CELL(x) {(x), SMALL_TOP, SMALL_W, SMALL_H, SMALL_T}
+
 const DigitCell *time_display_cells(void) {
-    static DigitCell cells[TD_DIGIT_COUNT];
-    static int ready;
-    if (!ready) {
-        int x = LEFT;
-        int small_y = TOP + BIG_H - SMALL_H;
-        cells[0] = (DigitCell){x, TOP, BIG_W, BIG_H, BIG_T};
-        x += BIG_W + DIGIT_GAP;
-        cells[1] = (DigitCell){x, TOP, BIG_W, BIG_H, BIG_T};
-        x += BIG_W + DIGIT_GAP + COLON_W;
-        cells[2] = (DigitCell){x, TOP, BIG_W, BIG_H, BIG_T};
-        x += BIG_W + DIGIT_GAP;
-        cells[3] = (DigitCell){x, TOP, BIG_W, BIG_H, BIG_T};
-        x += BIG_W + SECONDS_GAP;
-        cells[4] = (DigitCell){x, small_y, SMALL_W, SMALL_H, SMALL_T};
-        x += SMALL_W + SMALL_GAP;
-        cells[5] = (DigitCell){x, small_y, SMALL_W, SMALL_H, SMALL_T};
-        ready = 1;
-    }
+    static const DigitCell cells[TD_DIGIT_COUNT] = {
+        BIG_CELL(X_HOUR_TENS),     BIG_CELL(X_HOUR_UNITS),
+        BIG_CELL(X_MINUTE_TENS),   BIG_CELL(X_MINUTE_UNITS),
+        SMALL_CELL(X_SECOND_TENS), SMALL_CELL(X_SECOND_UNITS),
+    };
     return cells;
 }
 

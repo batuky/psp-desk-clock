@@ -21,23 +21,38 @@ static void background_is_black(void) {
     CHECK_HEX(at(FB_WIDTH - 1, FB_HEIGHT - 1), 0xFF000000);
 }
 
-/* Independent source of truth: the standard seven-segment alphabet.
- * Bit order a..g = top, upper right, lower right, bottom, lower left,
- * upper left, middle. 6 and 9 keep their tails; 7 has no upper-left bar. */
+/* Independent source of truth: the digits as the familiar seven-segment
+ * ASCII art, parsed into segment masks. 6 and 9 keep their tails; 7 has no
+ * upper-left bar. Segment bits: a top, b upper right, c lower right,
+ * d bottom, e lower left, f upper left, g middle. */
 enum { A = 1, B = 2, C = 4, D = 8, E = 16, F = 32, G = 64 };
-static const int DIGIT_SEGMENTS[10] = {
-    A | B | C | D | E | F,      /* 0 */
-    B | C,                      /* 1 */
-    A | B | D | E | G,          /* 2 */
-    A | B | C | D | G,          /* 3 */
-    B | C | F | G,              /* 4 */
-    A | C | D | F | G,          /* 5 */
-    A | C | D | E | F | G,      /* 6 */
-    A | B | C,                  /* 7 */
-    A | B | C | D | E | F | G,  /* 8 */
-    A | B | C | D | F | G,      /* 9 */
-};
 #define DASH G
+
+static const char *const GLYPHS[10][3] = {
+    {" _ ", "| |", "|_|"}, /* 0 */
+    {"   ", "  |", "  |"}, /* 1 */
+    {" _ ", " _|", "|_ "}, /* 2 */
+    {" _ ", " _|", " _|"}, /* 3 */
+    {"   ", "|_|", "  |"}, /* 4 */
+    {" _ ", "|_ ", " _|"}, /* 5 */
+    {" _ ", "|_ ", "|_|"}, /* 6 */
+    {" _ ", "  |", "  |"}, /* 7 */
+    {" _ ", "|_|", "|_|"}, /* 8 */
+    {" _ ", "|_|", " _|"}, /* 9 */
+};
+
+static int glyph_mask(int digit) {
+    const char *const *g = GLYPHS[digit];
+    int mask = 0;
+    if (g[0][1] == '_') mask |= A;
+    if (g[1][2] == '|') mask |= B;
+    if (g[2][2] == '|') mask |= C;
+    if (g[2][1] == '_') mask |= D;
+    if (g[2][0] == '|') mask |= E;
+    if (g[1][0] == '|') mask |= F;
+    if (g[1][1] == '_') mask |= G;
+    return mask;
+}
 
 /* Centre of each segment inside a cell, from the cell's own geometry. */
 static void segment_probe(const DigitCell *c, int seg, int *px, int *py) {
@@ -73,8 +88,8 @@ static void expect_cell(int cell, int lit_mask) {
 }
 
 static void expect_digits(int cell, int value) {
-    expect_cell(cell, DIGIT_SEGMENTS[value / 10]);
-    expect_cell(cell + 1, DIGIT_SEGMENTS[value % 10]);
+    expect_cell(cell, glyph_mask(value / 10));
+    expect_cell(cell + 1, glyph_mask(value % 10));
 }
 
 static void hours_show_their_digits(void) {
