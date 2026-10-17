@@ -16,7 +16,15 @@ Run a clock app on a PSP (custom firmware) so the handheld can sit on a desk and
 
 ## Build
 
-Not set up yet. This will use the [PSPDEV](https://github.com/pspdev/pspdev) toolchain.
+Uses the [PSPDEV](https://github.com/pspdev/pspdev) toolchain through Docker (no native Windows build exists). The first run builds a small dev image on top of `pspdev/pspdev`.
+
+```sh
+tools/dev.sh make test              # host-side tests of the pure core
+tools/dev.sh make core-psp-check    # core also compiles with psp-gcc
+tools/dev.sh make update-golden     # regenerate golden images, review before committing
+```
+
+There is no EBOOT build yet, only the core and its tests.
 
 ## License
 
