@@ -48,13 +48,16 @@ static void setup_exit_callback(void) {
     if (thread >= 0) sceKernelStartThread(thread, 0, NULL);
 }
 
-static int psp_read_time(void *ctx, int *hour, int *minute, int *second) {
-    ScePspDateTime now;
+static int psp_read_time(void *ctx, LocalTime *now) {
+    ScePspDateTime rtc;
     (void)ctx;
-    if (sceRtcGetCurrentClockLocalTime(&now) < 0) return -1;
-    *hour = now.hour;
-    *minute = now.minute;
-    *second = now.second;
+    if (sceRtcGetCurrentClockLocalTime(&rtc) < 0) return -1;
+    now->year = rtc.year;
+    now->month = rtc.month;
+    now->day = rtc.day;
+    now->hour = rtc.hour;
+    now->minute = rtc.minute;
+    now->second = rtc.second;
     return 0;
 }
 

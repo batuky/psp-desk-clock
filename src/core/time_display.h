@@ -5,6 +5,7 @@
 #define TIME_DISPLAY_H
 
 #include "framebuffer.h"
+#include "local_time.h"
 
 /* Digit cells in reading order: hour tens, hour units, minute tens,
  * minute units, second tens, second units. */
@@ -21,9 +22,10 @@ typedef struct {
 /* Where each digit cell sits. Fixed for the lifetime of the program. */
 const DigitCell *time_display_cells(void);
 
-/* Clears the Framebuffer and draws the Time display. A component outside
- * its valid range (hour 0-23, minute 0-59, second 0-59) is drawn as a dash
- * instead of digits, so the display never shows a wrong time. */
-void time_display_render(Framebuffer *fb, int hour, int minute, int second);
+/* Clears the Framebuffer and draws the Time display for `now`. A component
+ * outside its valid range (hour 0-23, minute 0-59, second 0-59) is drawn as
+ * a dash instead of digits, and so is everything when `now` is NULL (the
+ * clock could not be read), so the display never shows a wrong time. */
+void time_display_render(Framebuffer *fb, const LocalTime *now);
 
 #endif

@@ -9,8 +9,9 @@ static Framebuffer fb;
 
 /* Start every render from garbage so a test can't pass on leftovers. */
 static void render(int h, int m, int s) {
+    LocalTime now = {2026, 10, 17, h, m, s};
     memset(&fb, 0x5A, sizeof fb);
-    time_display_render(&fb, h, m, s);
+    time_display_render(&fb, &now);
 }
 
 static Pixel at(int x, int y) { return fb.pixels[y * FB_WIDTH + x]; }
@@ -130,6 +131,12 @@ static void out_of_range_components_show_a_dash(void) {
     expect_cell(5, DASH);
 }
 
+static void an_unreadable_clock_shows_a_dash_in_every_cell(void) {
+    memset(&fb, 0x5A, sizeof fb);
+    time_display_render(&fb, NULL);
+    for (int cell = 0; cell < TD_DIGIT_COUNT; cell++) expect_cell(cell, DASH);
+}
+
 static void seconds_are_smaller_and_share_the_bottom_edge(void) {
     const DigitCell *c = time_display_cells();
     CHECK(c[4].w < c[0].w && c[4].h < c[0].h);
@@ -239,6 +246,7 @@ int main(void) {
     RUN(minutes_show_their_digits);
     RUN(seconds_show_their_digits);
     RUN(out_of_range_components_show_a_dash);
+    RUN(an_unreadable_clock_shows_a_dash_in_every_cell);
     RUN(seconds_are_smaller_and_share_the_bottom_edge);
     RUN(time_display_spans_the_top_and_leaves_the_bottom_free);
     RUN(colon_separates_hours_from_minutes);
