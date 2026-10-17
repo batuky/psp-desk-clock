@@ -1,3 +1,8 @@
+## Branching
+
+- Default branch is `development`. `main` only receives work that is verified to run properly, and only the owner merges into it.
+- Never commit straight to `development` or `main`. Create a branch named per [Conventional Branch](https://conventionalbranch.org/) (`feature/`, `bugfix/`, `hotfix/`, `release/`, `chore/`, then lowercase words joined by hyphens, e.g. `feature/month-calendar`), push it, then open a PR into `development`.
+
 ## Agent skills
 
 ### Issue tracker
