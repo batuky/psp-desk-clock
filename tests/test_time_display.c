@@ -68,13 +68,8 @@ static void segment_probe(const DigitCell *c, int seg, int *px, int *py) {
     }
 }
 
-/* Lit segments are exactly white; Ghost segments are a faint grey: not
- * black, not white, equal channels, dim. */
-static int is_ghost(Pixel p) {
-    uint32_t r = p & 0xFF, g = (p >> 8) & 0xFF, b = (p >> 16) & 0xFF;
-    return (p >> 24) == 0xFF && r == g && g == b && r > 0 && r <= 0x40;
-}
-
+/* Lit segments are exactly white; a segment that is not lit is not drawn,
+ * so its centre stays black. */
 static void expect_cell(int cell, int lit_mask) {
     const DigitCell *c = &time_display_cells()[cell];
     for (int seg = A; seg <= G; seg <<= 1) {
@@ -83,7 +78,7 @@ static void expect_cell(int cell, int lit_mask) {
         if (lit_mask & seg)
             CHECK_HEX(at(px, py), 0xFFFFFFFF);
         else
-            CHECK(is_ghost(at(px, py)));
+            CHECK_HEX(at(px, py), 0xFF000000);
     }
 }
 
@@ -156,15 +151,6 @@ static void time_display_spans_the_top_and_leaves_the_bottom_free(void) {
         CHECK(c[i].y + c[i].h <= FB_HEIGHT / 2 - 8); /* top half only */
     }
     CHECK(c[0].w >= 64 && c[0].h >= 100);            /* big enough to read across a desk */
-}
-
-/* Ghost segments are faint: visible, but darker than #20. */
-static void ghost_segments_are_faint(void) {
-    const DigitCell *c = &time_display_cells()[1];
-    render(0, 0, 0);
-    Pixel p = at(c->x + c->w / 2, c->y + c->h / 2); /* middle bar of '0' is unlit */
-    CHECK(is_ghost(p));
-    CHECK((p & 0xFF) <= 0x1C);
 }
 
 static void colon_separates_hours_from_minutes(void) {
@@ -255,7 +241,6 @@ int main(void) {
     RUN(out_of_range_components_show_a_dash);
     RUN(seconds_are_smaller_and_share_the_bottom_edge);
     RUN(time_display_spans_the_top_and_leaves_the_bottom_free);
-    RUN(ghost_segments_are_faint);
     RUN(colon_separates_hours_from_minutes);
     RUN(horizontal_segments_taper_to_a_point);
     RUN(vertical_segments_taper_to_a_point);

@@ -1,7 +1,5 @@
 #include "time_display.h"
 
-#define GHOST ((Pixel)0xFF161616u)
-
 enum { SEG_A = 1, SEG_B = 2, SEG_C = 4, SEG_D = 8, SEG_E = 16, SEG_F = 32, SEG_G = 64 };
 
 /* Lit segments per digit 0-9 (a..g = top, upper right, lower right, bottom,
@@ -116,8 +114,7 @@ static void draw_segment(Framebuffer *fb, const DigitCell *c, int seg, Pixel col
 }
 
 static void draw_cell(Framebuffer *fb, const DigitCell *c, int lit_mask) {
-    for (int seg = SEG_A; seg <= SEG_G; seg <<= 1)
-        draw_segment(fb, c, seg, GHOST);
+    /* Segments that are not lit are not drawn. */
     for (int seg = SEG_A; seg <= SEG_G; seg <<= 1)
         if (lit_mask & seg) draw_segment(fb, c, seg, PIXEL_WHITE);
 }
