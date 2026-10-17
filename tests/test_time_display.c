@@ -142,13 +142,29 @@ static void seconds_are_smaller_and_share_the_bottom_edge(void) {
     CHECK(c[4].y + c[4].h == c[0].y + c[0].h);
 }
 
-static void time_display_leaves_the_right_side_free(void) {
+/* The Time display spans the top of the screen, centred, and leaves the
+ * lower half free for the Date line and the Month calendar. */
+static void time_display_spans_the_top_and_leaves_the_bottom_free(void) {
     const DigitCell *c = time_display_cells();
+    int left = c[0].x, right = c[TD_DIGIT_COUNT - 1].x + c[TD_DIGIT_COUNT - 1].w;
+    CHECK(left >= 8);
+    CHECK(FB_WIDTH - right >= 8);
+    CHECK(left - (FB_WIDTH - right) <= 1 && (FB_WIDTH - right) - left <= 1); /* centred */
+    CHECK(right - left >= FB_WIDTH * 9 / 10 - 40);                           /* wide */
     for (int i = 0; i < TD_DIGIT_COUNT; i++) {
-        CHECK(c[i].x >= 0 && c[i].y >= 0);
-        CHECK(c[i].x + c[i].w <= 300); /* Month calendar needs ~170 px */
-        CHECK(c[i].y + c[i].h <= FB_HEIGHT);
+        CHECK(c[i].y >= 0);
+        CHECK(c[i].y + c[i].h <= FB_HEIGHT / 2 - 8); /* top half only */
     }
+    CHECK(c[0].w >= 64 && c[0].h >= 100);            /* big enough to read across a desk */
+}
+
+/* Ghost segments are faint: visible, but darker than #20. */
+static void ghost_segments_are_faint(void) {
+    const DigitCell *c = &time_display_cells()[1];
+    render(0, 0, 0);
+    Pixel p = at(c->x + c->w / 2, c->y + c->h / 2); /* middle bar of '0' is unlit */
+    CHECK(is_ghost(p));
+    CHECK((p & 0xFF) <= 0x1C);
 }
 
 static void colon_separates_hours_from_minutes(void) {
@@ -158,6 +174,68 @@ static void colon_separates_hours_from_minutes(void) {
     CHECK_HEX(at(x, c[0].y + c[0].h / 3), 0xFFFFFFFF);
     CHECK_HEX(at(x, c[0].y + 2 * c[0].h / 3), 0xFFFFFFFF);
     CHECK_HEX(at(x, c[0].y + c[0].h / 2), 0xFF000000); /* gap between dots */
+}
+
+/* Segments are six-cornered, like an LED wall clock: each bar is widest at
+ * its middle and tapers to a point at both ends, and neighbouring bars
+ * leave the corner where they meet open. Checked on an '8', which lights
+ * every segment. */
+static int is_lit(int x, int y) { return at(x, y) == PIXEL_WHITE; }
+
+/* First and last lit x in row y within the cell, or -1 when none. */
+static void row_extent(const DigitCell *c, int y, int *first, int *last) {
+    *first = *last = -1;
+    for (int x = c->x; x < c->x + c->w; x++)
+        if (is_lit(x, y)) {
+            if (*first < 0) *first = x;
+            *last = x;
+        }
+}
+
+/* First and last lit y in column x within y0..y1 (exclusive), or -1. */
+static void column_extent(int x, int y0, int y1, int *first, int *last) {
+    *first = *last = -1;
+    for (int y = y0; y < y1; y++)
+        if (is_lit(x, y)) {
+            if (*first < 0) *first = y;
+            *last = y;
+        }
+}
+
+static void horizontal_segments_taper_to_a_point(void) {
+    const DigitCell *c = &time_display_cells()[3];
+    int top_first, top_last, mid_first, mid_last;
+    render(0, 8, 0);
+    row_extent(c, c->y, &top_first, &top_last);                /* edge row */
+    row_extent(c, c->y + c->t / 2, &mid_first, &mid_last);     /* centre row */
+    CHECK(top_first >= 0);
+    CHECK(mid_first < top_first);
+    CHECK(mid_last > top_last);
+}
+
+static void vertical_segments_taper_to_a_point(void) {
+    const DigitCell *c = &time_display_cells()[3];
+    int edge_x = c->x + c->w - 1;                       /* outer edge column */
+    int centre_x = c->x + c->w - c->t + c->t / 2;       /* bar's centre column */
+    int edge_first, edge_last, centre_first, centre_last;
+    render(0, 8, 0);
+    /* Only the lower half of the upper-right bar: clear of the top bar, so
+     * the scan sees this one segment's end. */
+    column_extent(edge_x, c->y + c->h / 4, c->y + c->h / 2, &edge_first, &edge_last);
+    column_extent(centre_x, c->y + c->h / 4, c->y + c->h / 2, &centre_first, &centre_last);
+    CHECK(edge_last >= 0);
+    CHECK(centre_last > edge_last);
+}
+
+static void neighbouring_segments_leave_the_corner_open(void) {
+    const DigitCell *c = &time_display_cells()[3];
+    int left = c->x + c->t / 2, right = c->x + c->w - c->t + c->t / 2;
+    int top = c->y + c->t / 2, bottom = c->y + c->h - c->t + c->t / 2;
+    render(0, 8, 0);
+    CHECK_HEX(at(left, top), 0xFF000000);
+    CHECK_HEX(at(right, top), 0xFF000000);
+    CHECK_HEX(at(left, bottom), 0xFF000000);
+    CHECK_HEX(at(right, bottom), 0xFF000000);
 }
 
 /* Golden image of 12:34:56. Written once and approved by eye; regenerate
@@ -176,8 +254,12 @@ int main(void) {
     RUN(seconds_show_their_digits);
     RUN(out_of_range_components_show_a_dash);
     RUN(seconds_are_smaller_and_share_the_bottom_edge);
-    RUN(time_display_leaves_the_right_side_free);
+    RUN(time_display_spans_the_top_and_leaves_the_bottom_free);
+    RUN(ghost_segments_are_faint);
     RUN(colon_separates_hours_from_minutes);
+    RUN(horizontal_segments_taper_to_a_point);
+    RUN(vertical_segments_taper_to_a_point);
+    RUN(neighbouring_segments_leave_the_corner_open);
     RUN(time_display_matches_the_golden_image);
     return mt_report();
 }
