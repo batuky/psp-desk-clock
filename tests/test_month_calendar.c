@@ -235,38 +235,83 @@ static void a_missing_or_impossible_date_draws_only_the_header(void) {
     }
 }
 
-/* Neighbouring numbers must read as separate numbers: the blank gap between
- * them has to be clearly wider than the gap between the two digits inside a
- * number. Measured in font pixels, from the drawing itself: a digit is 7 font
- * pixels tall, so its ink height says how big one font pixel is. */
+/* Neighbouring numbers must read as separate numbers. Measured from the
+ * drawing: take a day whose two digits are both full-width glyphs (the 20th:
+ * '2' and '0'), find the blank gap between those two digits, and compare it
+ * with the blank gap between the 20th and the 21st next to it. The gap
+ * between numbers has to be at least three times the gap between digits, or
+ * "20 21" reads as "2021". */
+#define ORIGIN 8
+#define NUMBER_TO_DIGIT_GAP_RATIO 3
+
+static int column_has_ink(int x, int y0, int y1) {
+    for (int y = y0; y < y1; y++)
+        if (px(&fb, x, y) != PIXEL_BLACK) return 1;
+    return 0;
+}
+
+/* Blank columns between the two digits of the 20th, and between the 20th
+ * and the 21st. Both are written to the arguments. */
+static void measure_gaps(int cw, int ch, int *between_digits, int *between_numbers) {
+    LocalTime now = on(2026, 10, 1); /* today is the 1st: no highlight in the rows below */
+    MonthCells m;
+    int y0, y1, x0, x1, x, ink_end_of_20 = -1, ink_start_of_21 = -1;
+
+    CHECK(month_calendar_cells(&now, &m) == 1);
+    clear(&fb);
+    month_calendar_draw(&fb, ORIGIN, ORIGIN, cw, ch, &now);
+    y0 = ORIGIN + (m.row[20] + 1) * ch;
+    y1 = y0 + ch;
+    x0 = ORIGIN + m.column[20] * cw; /* the 21st is in the next column */
+    x1 = x0 + cw;
+
+    /* Gap inside the 20th: skip the first digit's ink, count the blanks. */
+    x = x0;
+    while (x < x1 && !column_has_ink(x, y0, y1)) x++;
+    while (x < x1 && column_has_ink(x, y0, y1)) x++;
+    *between_digits = 0;
+    while (x < x1 && !column_has_ink(x, y0, y1)) { (*between_digits)++; x++; }
+
+    for (x = x0; x < x1; x++)
+        if (column_has_ink(x, y0, y1)) ink_end_of_20 = x;
+    for (x = x1; x < x1 + cw; x++)
+        if (column_has_ink(x, y0, y1)) { ink_start_of_21 = x; break; }
+    *between_numbers = ink_start_of_21 - ink_end_of_20 - 1;
+}
+
 static void numbers_leave_a_clear_gap_between_neighbouring_cells(void) {
-    static const int SIZES[][2] = {{25, 17}, {30, 17}, {40, 28}, {50, 30}};
-    LocalTime now = on(2026, 10, 1); /* today is the 1st, away from the row checked below */
+    /* The smallest cell each text size supports, one pixel short of the next
+     * size, and one comfortably inside each band. */
+    static const int SIZES[][2] = {{14, 8}, {27, 16}, {28, 16}, {41, 24}, {42, 24}, {50, 30}};
+    for (int i = 0; i < (int)(sizeof SIZES / sizeof SIZES[0]); i++) {
+        int between_digits, between_numbers;
+        measure_gaps(SIZES[i][0], SIZES[i][1], &between_digits, &between_numbers);
+        CHECK(between_digits > 0);
+        CHECK(between_numbers >= NUMBER_TO_DIGIT_GAP_RATIO * between_digits);
+    }
+}
+
+/* A number sits in the middle of its cell: the blank space left of its ink
+ * and right of its ink differ by at most one pixel. Checked on the 20th, whose
+ * two digits are both full-width glyphs, so the ink fills its whole box. */
+static void numbers_are_centred_in_their_cells(void) {
+    static const int SIZES[][2] = {{14, 8}, {28, 16}, {30, 17}, {42, 24}, {50, 30}};
+    LocalTime now = on(2026, 10, 1);
     MonthCells m;
     CHECK(month_calendar_cells(&now, &m) == 1);
-    for (int s = 0; s < 4; s++) {
-        int cw = SIZES[s][0], ch = SIZES[s][1];
-        int row = m.row[12] + 1; /* 12 to 18: a full week of two-digit numbers */
-        int digit_height = 0;
+    for (int i = 0; i < (int)(sizeof SIZES / sizeof SIZES[0]); i++) {
+        int cw = SIZES[i][0], ch = SIZES[i][1];
+        int y0 = ORIGIN + (m.row[20] + 1) * ch, x0 = ORIGIN + m.column[20] * cw;
+        int first = -1, last = -1;
         clear(&fb);
-        month_calendar_draw(&fb, 8, 8, cw, ch, &now);
-        for (int y = 8 + row * ch; y < 8 + (row + 1) * ch; y++)
-            for (int x = 8; x < 8 + CALENDAR_COLUMNS * cw; x++)
-                if (px(&fb, x, y) != PIXEL_BLACK) { digit_height++; break; }
-        for (int c = 0; c < CALENDAR_COLUMNS - 1; c++) {
-            int right_of_left = -1, left_of_right = -1;
-            for (int y = 8 + row * ch; y < 8 + (row + 1) * ch; y++)
-                for (int dx = 0; dx < cw; dx++) {
-                    if (px(&fb, 8 + c * cw + dx, y) != PIXEL_BLACK && 8 + c * cw + dx > right_of_left)
-                        right_of_left = 8 + c * cw + dx;
-                    if (px(&fb, 8 + (c + 1) * cw + dx, y) != PIXEL_BLACK &&
-                        (left_of_right < 0 || 8 + (c + 1) * cw + dx < left_of_right))
-                        left_of_right = 8 + (c + 1) * cw + dx;
-                }
-            int blank = left_of_right - right_of_left - 1;
-            CHECK(digit_height > 0);
-            CHECK(blank * 7 >= 3 * digit_height); /* at least 3 font pixels */
-        }
+        month_calendar_draw(&fb, ORIGIN, ORIGIN, cw, ch, &now);
+        for (int x = x0; x < x0 + cw; x++)
+            if (column_has_ink(x, y0, y0 + ch)) {
+                if (first < 0) first = x;
+                last = x;
+            }
+        CHECK(first >= 0);
+        CHECK(abs((first - x0) - (x0 + cw - 1 - last)) <= 1);
     }
 }
 
@@ -305,6 +350,7 @@ int main(void) {
     RUN(nothing_is_drawn_outside_the_grid);
     RUN(a_missing_or_impossible_date_draws_only_the_header);
     RUN(numbers_leave_a_clear_gap_between_neighbouring_cells);
+    RUN(numbers_are_centred_in_their_cells);
     RUN(the_calendar_matches_the_golden_images);
     return mt_report();
 }

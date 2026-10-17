@@ -1,6 +1,5 @@
 #include "month_calendar.h"
 
-#include <stddef.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -11,9 +10,14 @@
  * Cumartesi, Pazar. Ç is U+00C7, spelled as its UTF-8 bytes. */
 static const char *const INITIALS[CALENDAR_COLUMNS] = {"P", "S", "\xC3\x87", "P", "C", "C", "P"};
 
-#define WIDEST_NUMBER_PIXELS 11 /* "31" at scale 1: two glyphs, one space between */
-#define NUMBER_GAP_PIXELS 3     /* clear space to the next number, so "12" "13" do not read as "1213" */
-#define CAP_HEIGHT_PIXELS 7     /* letters sit on 7 rows; row 8 is only the cedilla */
+/* Facts about the font, taken from bitmap_font.h so they cannot drift: a
+ * two-digit number at scale 1 is two glyphs with one space between them, and
+ * letters sit on all but the last row (that one is only the cedilla). */
+#define WIDEST_NUMBER_PIXELS (2 * FONT_ADVANCE - 1)
+#define CAP_HEIGHT_PIXELS (FONT_GLYPH_H - 1)
+/* Clear space left to the next number, in font pixels, so that "12" next to
+ * "13" does not read as "1213". */
+#define NUMBER_GAP_PIXELS 3
 
 int month_calendar_cells(const LocalTime *now, MonthCells *out) {
     int first_column, index;
