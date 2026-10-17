@@ -12,10 +12,6 @@ _Avoid_: Screen, UI, dashboard
 The large white retro seven-segment digits showing hours and minutes, with a smaller seconds readout beside them.
 _Avoid_: Clock digits, timer
 
-**Ghost segment**:
-A seven-segment bar that is not lit, drawn very faintly so the full digit shape stays visible.
-_Avoid_: Off segment, shadow
-
 **Date line**:
 The Turkish text line giving the day-month-year date and weekday name, for example `17.10.2026 Cumartesi`.
 _Avoid_: Date label, date text

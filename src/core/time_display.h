@@ -1,6 +1,6 @@
 /* Time display: large white seven-segment hours and minutes with a smaller
- * seconds readout, on a black background. Unlit segments are drawn as
- * Ghost segments. See GLOSSARY.md. */
+ * seconds readout, on a black background. Segments that are not lit are not
+ * drawn. See GLOSSARY.md. */
 #ifndef TIME_DISPLAY_H
 #define TIME_DISPLAY_H
 
