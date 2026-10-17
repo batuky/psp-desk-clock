@@ -21,5 +21,5 @@ A grid of the current month's days, weeks starting on Monday, with today's day h
 _Avoid_: Calendar view, planner
 
 **Local time**:
-The time of day in the timezone the PSP itself is set to, expected to be UTC+3 (Turkey, no daylight saving).
+The date and time of day in the timezone the PSP itself is set to, expected to be UTC+3 (Turkey, no daylight saving).
 _Avoid_: System time, device time

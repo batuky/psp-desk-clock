@@ -136,6 +136,16 @@ static void an_unreadable_clock_shows_dashes_and_the_loop_carries_on(void) {
     CHECK(last_frame_shows(&script[2].time));
 }
 
+/* A good reading, then a lost one, then the same reading again: the dashes
+ * are shown in between, and the time comes back even though it did not
+ * change since it was last shown. */
+static void the_time_comes_back_after_dashes_even_if_it_is_unchanged(void) {
+    static const Reading script[] = {AT(12, 34, 56), UNREADABLE, UNREADABLE, AT(12, 34, 56)};
+    run(script, 4, 4);
+    CHECK(fake.presents == 3); /* time, dashes once, time again */
+    CHECK(last_frame_shows(&script[3].time));
+}
+
 int main(void) {
     RUN(first_frame_is_presented_immediately);
     RUN(same_time_is_not_presented_twice);
@@ -146,5 +156,6 @@ int main(void) {
     RUN(the_screen_is_kept_awake_on_every_poll);
     RUN(the_loop_stops_when_exit_is_requested);
     RUN(an_unreadable_clock_shows_dashes_and_the_loop_carries_on);
+    RUN(the_time_comes_back_after_dashes_even_if_it_is_unchanged);
     return mt_report();
 }
