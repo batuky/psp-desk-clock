@@ -14,6 +14,8 @@ typedef struct {
     int x, y;  /* top-left corner in the Framebuffer */
     int w, h;  /* cell size in pixels */
     int t;     /* segment thickness in pixels */
+    int g;     /* pixels each segment is pulled back from the corners it
+                  shares with its neighbours */
 } DigitCell;
 
 /* Where each digit cell sits. Fixed for the lifetime of the program. */

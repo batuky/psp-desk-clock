@@ -24,7 +24,18 @@ tools/dev.sh make core-psp-check    # core also compiles with psp-gcc
 tools/dev.sh make update-golden     # regenerate golden images, review before committing
 ```
 
-There is no EBOOT build yet, only the core and its tests.
+```sh
+tools/dev.sh make eboot             # builds build/psp/EBOOT.PBP
+```
+
+## Running on a PSP
+
+1. Put the PSP in USB mode and copy `build/psp/EBOOT.PBP` to `PSP/GAME/psp-desk-clock/` on the Memory Stick. Flush or safely eject before leaving USB mode.
+2. If your custom firmware is temporary (PRO-C), run its launcher from the Game menu (for example `661 PRO-C Fast Recovery`) after every boot. Without it the app fails with "This game cannot be started. The data is corrupted."
+3. Start **PSP Desk Clock** from Game → Memory Stick. HOME exits.
+4. Set the PSP's timezone in the XMB (Turkey: +03:00); the clock shows the PSP's own local time.
+
+The same EBOOT runs in the PPSSPP emulator, but PPSSPP does not emulate power, CPU clock or screen-off behaviour.
 
 ## License
 
