@@ -104,6 +104,8 @@ static void run_with_presses(const Reading *script, int len, int polls, unsigned
         fake.file_len = -1;
     } else if (raw_file) {
         fake.file_len = (int)strlen(raw_file);
+        CHECK(fake.file_len <= (int)sizeof fake.file); /* the fake file holds no more */
+        if (fake.file_len > (int)sizeof fake.file) fake.file_len = (int)sizeof fake.file;
         memcpy(fake.file, raw_file, (size_t)fake.file_len);
     } else {
         fake.file_len = (int)settings_format_layout(layout, fake.file);
@@ -114,6 +116,10 @@ static void run_with_presses(const Reading *script, int len, int polls, unsigned
     fake.polls_before_exit = polls;
     fake.press_polls = press_polls;
     clock_app_run(&platform, &scratch);
+    /* These apply to one run only, so a test that stops early can't leak them. */
+    raw_file = NULL;
+    file_absent = 0;
+    writes_fail = 0;
 }
 
 static void run(const Reading *script, int len, int polls) {
