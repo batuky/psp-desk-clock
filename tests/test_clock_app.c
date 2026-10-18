@@ -21,7 +21,7 @@ typedef struct {
     const Reading *script;
     int script_len;
     int polls_before_exit;
-    unsigned press_polls; /* bit n set: the switch was pressed before poll n */
+    unsigned press_polls; /* bit n set: the Layout switch was pressed before poll n (n < 32) */
     int reads, waits, awake_calls, presents, switch_checks;
     Framebuffer last_frame;
 } Fake;
@@ -48,7 +48,8 @@ static int fake_exit_requested(void *ctx) {
 
 static int fake_switch_pressed(void *ctx) {
     Fake *f = ctx;
-    return (int)((f->press_polls >> f->switch_checks++) & 1u);
+    int poll = f->switch_checks++;
+    return poll < 32 && ((f->press_polls >> poll) & 1u);
 }
 
 static Fake fake;
@@ -110,8 +111,8 @@ static void the_chosen_layout_is_the_one_presented(void) {
     CHECK(!last_frame_shows(&script[0].time)); /* the two layouts really differ */
 }
 
-/* Pressing the switch shows the other layout at once, even though the time
- * has not changed. */
+/* Pressing the Layout switch shows the other Layout at once, even though the
+ * time has not changed. */
 static void a_press_switches_the_layout_and_redraws_at_once(void) {
     static const Reading script[] = {AT(12, 34, 56)};
     layout = CLOCK_LAYOUT_D;

@@ -85,12 +85,24 @@ static int psp_exit_requested(void *ctx) {
     return 0;
 }
 
-/* L or R switches the layout; a held button counts once. */
+/* L or R is the Layout switch; a held button counts once, and L and R held
+ * together count as one button.
+ *
+ * The pad is sampled every vblank (about 17 ms) but polled every POLL_USEC, so
+ * a short tap could fall between two polls. Reading the samples of the whole
+ * poll interval and merging them catches it. */
+#define PAD_SAMPLES (POLL_USEC / 16000 + 1)
+
 static int psp_switch_pressed(void *ctx) {
-    SceCtrlData pad;
+    SceCtrlData pad[PAD_SAMPLES];
+    unsigned int buttons = 0;
+    int count = sceCtrlPeekBufferPositive(pad, PAD_SAMPLES);
+    int down;
     (void)ctx;
-    sceCtrlPeekBufferPositive(&pad, 1);
-    return button_edge_pressed(&switch_edge, (pad.Buttons & (PSP_CTRL_LTRIGGER | PSP_CTRL_RTRIGGER)) != 0);
+    if (count > PAD_SAMPLES) count = PAD_SAMPLES;
+    for (int i = 0; i < count; i++) buttons |= pad[i].Buttons;
+    down = (buttons & (PSP_CTRL_LTRIGGER | PSP_CTRL_RTRIGGER)) != 0;
+    return button_edge_pressed(&switch_edge, down);
 }
 
 int main(void) {
@@ -99,8 +111,11 @@ int main(void) {
                               psp_wait, psp_exit_requested, psp_switch_pressed, vram};
 
     setup_exit_callback();
+    /* Buttons only, sampled every vblank, for the Layout switch. */
     sceCtrlSetSamplingCycle(0);
     sceCtrlSetSamplingMode(PSP_CTRL_MODE_DIGITAL);
+    /* A trigger already held at launch is not a press: note it, drop the answer. */
+    (void)psp_switch_pressed(NULL);
     scePowerSetClockFrequency(CLOCK_PLL, CLOCK_CPU, CLOCK_BUS);
     sceDisplaySetMode(0, FB_WIDTH, FB_HEIGHT);
     sceDisplaySetFrameBuf(vram, VRAM_STRIDE, PSP_DISPLAY_PIXEL_FORMAT_8888,

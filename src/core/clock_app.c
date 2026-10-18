@@ -17,7 +17,7 @@ void clock_app_run(const ClockPlatform *platform, Framebuffer *fb, ClockLayout l
         int readable = platform->read_time(platform->ctx, &now) >= 0;
         Shown wanted = readable ? TIME_SHOWN : UNREADABLE_SHOWN;
 
-        if (switched) layout = (layout + 1) % CLOCK_LAYOUT_COUNT;
+        if (switched) layout = clock_face_next_layout(layout);
 
         /* Redraw only when what is displayed changes (the Clock face has no
          * seconds), and at once when the Layout switches. An unreadable
