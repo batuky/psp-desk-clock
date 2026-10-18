@@ -145,10 +145,10 @@ static void text_is_clipped_at_the_screen_edges(void) {
     for (int i = 0; i < FB_WIDTH * 20; i++) guarded.before[i] = guarded.after[i] = canary;
     for (int i = 0; i < FB_WIDTH * FB_HEIGHT; i++) guarded.buf.pixels[i] = PIXEL_BLACK;
 
-    bitmap_font_draw_text(&guarded.buf, -3, 5, 1, "8", PIXEL_WHITE);                /* left */
-    bitmap_font_draw_text(&guarded.buf, FB_WIDTH - 2, 5, 3, "8", PIXEL_WHITE);      /* right */
-    bitmap_font_draw_text(&guarded.buf, 40, -5, 2, "Cumartesi", PIXEL_WHITE);       /* top */
-    bitmap_font_draw_text(&guarded.buf, 40, FB_HEIGHT - 3, 2, "Cumartesi", PIXEL_WHITE); /* bottom */
+    bitmap_font_draw_text(&guarded.buf, -3, 5, 1, "8", PIXEL_WHITE); /* left */
+    bitmap_font_draw_text(&guarded.buf, FB_WIDTH - 2, 5, 3, "8", PIXEL_WHITE); /* right */
+    bitmap_font_draw_text(&guarded.buf, 40, -5, 2, "Cumartesi", PIXEL_WHITE); /* top */
+    bitmap_font_draw_text(&guarded.buf, 40, FB_HEIGHT - 3, 2, "Cumartesi", PIXEL_WHITE); /* low */
     bitmap_font_draw_text(&guarded.buf, -1000, -1000, 2, "Cumartesi", PIXEL_WHITE); /* far away */
     bitmap_font_draw_text(&guarded.buf, 5000, 5000, 2, "Cumartesi", PIXEL_WHITE);
 
@@ -158,7 +158,8 @@ static void text_is_clipped_at_the_screen_edges(void) {
     CHECK(canaries_intact);
     /* The part that is inside the screen is still drawn: the right edge of '8'. */
     int lit_at_left_edge = 0;
-    for (int y = 0; y < FB_HEIGHT; y++) lit_at_left_edge += guarded.buf.pixels[y * FB_WIDTH] == PIXEL_WHITE;
+    for (int y = 0; y < FB_HEIGHT; y++)
+        lit_at_left_edge += guarded.buf.pixels[y * FB_WIDTH] == PIXEL_WHITE;
     CHECK(lit_at_left_edge > 0);
 }
 
@@ -218,10 +219,12 @@ static void the_font_matches_the_golden_image(void) {
     fb_clear(&fb, PIXEL_BLACK);
     bitmap_font_draw_text(&fb, 8, 8, 3, "17.10.2026 Cumartesi", PIXEL_WHITE);
     bitmap_font_draw_text(&fb, 8, 44, 3, "Pazartesi Sal" DOTLESS_I, PIXEL_WHITE);
-    bitmap_font_draw_text(&fb, 8, 80, 3, CCEDILLA "ar" SCEDILLA "amba Per" SCEDILLA "embe", PIXEL_WHITE);
+    bitmap_font_draw_text(&fb, 8, 80, 3, CCEDILLA "ar" SCEDILLA "amba Per" SCEDILLA "embe",
+                          PIXEL_WHITE);
     bitmap_font_draw_text(&fb, 8, 116, 3, "Cuma Pazar --.--.----", PIXEL_WHITE);
     bitmap_font_draw_text(&fb, 8, 152, 2, "0123456789 . -", PIXEL_WHITE);
-    bitmap_font_draw_text(&fb, 8, 176, 2, "PSC" CCEDILLA " abeil" DOTLESS_I "mrs" SCEDILLA "tuz", PIXEL_WHITE);
+    bitmap_font_draw_text(&fb, 8, 176, 2, "PSC" CCEDILLA " abeil" DOTLESS_I "mrs" SCEDILLA "tuz",
+                          PIXEL_WHITE);
     bitmap_font_draw_text(&fb, 8, 200, 1, "17.10.2026 Cumartesi @", PIXEL_WHITE);
     if (getenv("UPDATE_GOLDEN")) CHECK(ppm_write(path, &fb));
     CHECK(ppm_matches(path, &fb));

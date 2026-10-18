@@ -78,14 +78,15 @@ static void draw_segment(Framebuffer *fb, const DigitCell *c, int seg, Pixel col
     int left = c->x + t / 2, right = c->x + c->w - t + t / 2;
     int top = c->y + t / 2, bottom = c->y + c->h - t + t / 2, middle = c->y + c->h / 2;
     int across = right - left - 2 * g + 1;
+    int upper = middle - top - 2 * g + 1, lower = bottom - middle - 2 * g + 1; /* vertical bars */
     switch (seg) {
     case SEG_A: hex_bar_horizontal(fb, left + g, top, across, t, color); break;
     case SEG_G: hex_bar_horizontal(fb, left + g, middle, across, t, color); break;
     case SEG_D: hex_bar_horizontal(fb, left + g, bottom, across, t, color); break;
-    case SEG_F: hex_bar_vertical(fb, left, top + g, middle - top - 2 * g + 1, t, color); break;
-    case SEG_B: hex_bar_vertical(fb, right, top + g, middle - top - 2 * g + 1, t, color); break;
-    case SEG_E: hex_bar_vertical(fb, left, middle + g, bottom - middle - 2 * g + 1, t, color); break;
-    case SEG_C: hex_bar_vertical(fb, right, middle + g, bottom - middle - 2 * g + 1, t, color); break;
+    case SEG_F: hex_bar_vertical(fb, left, top + g, upper, t, color); break;
+    case SEG_B: hex_bar_vertical(fb, right, top + g, upper, t, color); break;
+    case SEG_E: hex_bar_vertical(fb, left, middle + g, lower, t, color); break;
+    case SEG_C: hex_bar_vertical(fb, right, middle + g, lower, t, color); break;
     }
 }
 
@@ -94,6 +95,9 @@ static void draw_cell(Framebuffer *fb, const DigitCell *c, int lit_mask) {
     for (int seg = SEG_A; seg <= SEG_G; seg <<= 1)
         if (lit_mask & seg) draw_segment(fb, c, seg, PIXEL_WHITE);
 }
+
+/* Stands for a value that is not there; draw_pair shows it as dashes. */
+#define MISSING_VALUE (-1)
 
 /* Draws a two-digit value, or a dash in both cells when it is out of range. */
 static void draw_pair(Framebuffer *fb, const DigitCell *cells, int value, int max) {
@@ -113,8 +117,11 @@ static void draw_colon(Framebuffer *fb, const TimeDisplayShape *shape, const Dig
 
 void time_display_draw(Framebuffer *fb, const TimeDisplayShape *shape, const LocalTime *now) {
     DigitCell cells[TD_DIGIT_COUNT];
+    int hour = now ? now->hour : MISSING_VALUE;
+    int minute = now ? now->minute : MISSING_VALUE;
+
     time_display_cells(shape, cells);
-    draw_pair(fb, &cells[0], now ? now->hour : -1, 23);
-    draw_pair(fb, &cells[2], now ? now->minute : -1, 59);
+    draw_pair(fb, &cells[0], hour, 23);
+    draw_pair(fb, &cells[2], minute, 59);
     draw_colon(fb, shape, cells);
 }

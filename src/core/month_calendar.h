@@ -6,18 +6,30 @@
 #include "framebuffer.h"
 #include "local_time.h"
 
-#define CALENDAR_COLUMNS 7 /* Monday to Sunday */
-#define CALENDAR_MAX_ROWS 6
+#define MONTH_CALENDAR_COLUMNS 7 /* Monday to Sunday */
+#define MONTH_CALENDAR_MAX_ROWS 6
+#define MONTH_CALENDAR_MAX_DAYS 31
 
-/* Where the days of one month sit in the grid. Arrays are indexed by the
- * day of the month, 1 to `days`; index 0 is unused. */
+/* One day's place in the grid, counted from 0. */
+typedef struct {
+    int column; /* 0 = Monday ... 6 = Sunday */
+    int row;    /* 0 = first week row */
+} MonthCell;
+
+/* Where the days of one month sit in the grid. `cell[0]` is the 1st of the
+ * month and `cell[days - 1]` the last; the entries after that are unused. */
 typedef struct {
     int days;  /* 28 to 31 */
     int rows;  /* week rows the month needs, 4 to 6 */
-    int today; /* the day of the month to highlight */
-    unsigned char column[32]; /* 0 = Monday ... 6 = Sunday */
-    unsigned char row[32];    /* 0 = first week row */
+    int today; /* the day of the month to highlight, 1 to `days` */
+    MonthCell cell[MONTH_CALENDAR_MAX_DAYS];
 } MonthCells;
+
+/* The cell of `day`, counted from 1 as on the calendar; `day` must be 1 to
+ * `days`. */
+static inline const MonthCell *month_cell_of_day(const MonthCells *m, int day) {
+    return &m->cell[day - 1];
+}
 
 /* Lays out the month of `now`. Returns 1 on success, or 0 (leaving `out`
  * untouched) when `now` is NULL or holds a date that does not exist. */

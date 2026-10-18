@@ -8,7 +8,8 @@
 
 /* Weekday initials, Monday first: Pazartesi, Salı, Çarşamba, Perşembe, Cuma,
  * Cumartesi, Pazar. Ç is U+00C7, spelled as its UTF-8 bytes. */
-static const char *const INITIALS[CALENDAR_COLUMNS] = {"P", "S", "\xC3\x87", "P", "C", "C", "P"};
+static const char *const INITIALS[MONTH_CALENDAR_COLUMNS] = {"P", "S", "\xC3\x87", "P",
+                                                            "C", "C", "P"};
 
 /* Facts about the font, taken from bitmap_font.h so they cannot drift: a
  * two-digit number at scale 1 is two glyphs with one space between them, and
@@ -29,17 +30,19 @@ int month_calendar_cells(const LocalTime *now, MonthCells *out) {
     out->today = now->day;
     /* calendar_weekday counts from Sunday; the grid starts on Monday. */
     first_column = (calendar_weekday(now->year, now->month, 1) + 6) % 7;
-    out->rows = (first_column + out->days + CALENDAR_COLUMNS - 1) / CALENDAR_COLUMNS;
-    for (int day = 1; day <= out->days; day++) {
-        index = first_column + day - 1;
-        out->column[day] = (unsigned char)(index % CALENDAR_COLUMNS);
-        out->row[day] = (unsigned char)(index / CALENDAR_COLUMNS);
+    out->rows = (first_column + out->days + MONTH_CALENDAR_COLUMNS - 1) / MONTH_CALENDAR_COLUMNS;
+    for (int i = 0; i < out->days; i++) {
+        index = first_column + i;
+        out->cell[i].column = index % MONTH_CALENDAR_COLUMNS;
+        out->cell[i].row = index / MONTH_CALENDAR_COLUMNS;
     }
     return 1;
 }
 
 /* The largest whole scale at which a two-digit number fits the cell with a
- * clear gap to its neighbours. */
+ * clear gap to its neighbours. The height is measured by FONT_GLYPH_H, the
+ * full 8 rows including the cedilla row, although draw_centred centres by
+ * CAP_HEIGHT_PIXELS: a cell that holds the cedilla also holds the letters. */
 static int text_scale(int cell_w, int cell_h) {
     int by_width = cell_w / (WIDEST_NUMBER_PIXELS + NUMBER_GAP_PIXELS);
     int by_height = cell_h / FONT_GLYPH_H;
@@ -60,15 +63,16 @@ void month_calendar_draw(Framebuffer *fb, int x, int y, int cell_w, int cell_h,
     MonthCells cells;
     int scale = text_scale(cell_w, cell_h);
 
-    for (int column = 0; column < CALENDAR_COLUMNS; column++)
+    for (int column = 0; column < MONTH_CALENDAR_COLUMNS; column++)
         draw_centred(fb, x + column * cell_w, y, cell_w, cell_h, scale, INITIALS[column], 1,
                      PIXEL_WHITE);
     if (!month_calendar_cells(now, &cells)) return;
 
     for (int day = 1; day <= cells.days; day++) {
-        char number[3];
-        int cell_x = x + cells.column[day] * cell_w;
-        int cell_y = y + (cells.row[day] + 1) * cell_h; /* +1: the header row */
+        char number[12]; /* room for any int, so psp-gcc cannot see a truncation */
+        const MonthCell *at = month_cell_of_day(&cells, day);
+        int cell_x = x + at->column * cell_w;
+        int cell_y = y + (at->row + 1) * cell_h; /* +1: the header row */
         Pixel color = PIXEL_WHITE;
 
         if (day == cells.today) {

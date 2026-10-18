@@ -99,7 +99,8 @@ int bitmap_font_draw_text(Framebuffer *fb, int x, int y, int scale, const char *
         const char *const *rows = glyph ? glyph->rows : MISSING_BOX;
         for (int r = 0; r < FONT_GLYPH_H; r++)
             for (int c = 0; c < FONT_GLYPH_W; c++)
-                if (rows[r][c] == '#') fb_fill_rect(fb, x + c * scale, y + r * scale, scale, scale, color);
+                if (rows[r][c] == '#')
+                    fb_fill_rect(fb, x + c * scale, y + r * scale, scale, scale, color);
         x += FONT_ADVANCE * scale;
     }
     return x;
