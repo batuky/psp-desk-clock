@@ -4,6 +4,7 @@
 #include "clock_face.h"
 #include "local_time.h"
 #include "minitest.h"
+#include "settings.h"
 
 /* A scripted stand-in for the hardware. Each read_time call returns the next
  * scripted reading (the last one repeats). The loop quits after
@@ -24,6 +25,12 @@ typedef struct {
     unsigned press_polls; /* bit n set: the Layout switch was pressed before poll n (n < 32) */
     int reads, waits, awake_calls, presents, switch_checks;
     Framebuffer last_frame;
+    /* The settings file: `file` holds `file_len` bytes, or is absent when
+     * file_len < 0. A write replaces it, unless writes_fail. */
+    char file[SETTINGS_MAX_BYTES];
+    int file_len;
+    int writes_fail;
+    int settings_reads, settings_writes;
 } Fake;
 
 static int fake_read_time(void *ctx, LocalTime *now) {
@@ -52,21 +59,61 @@ static int fake_switch_pressed(void *ctx) {
     return poll < 32 && ((f->press_polls >> poll) & 1u);
 }
 
+static int fake_read_settings(void *ctx, char *buf, size_t cap) {
+    Fake *f = ctx;
+    size_t len = (size_t)f->file_len;
+    f->settings_reads++;
+    if (f->file_len < 0) return -1;
+    if (len > cap) len = cap;
+    memcpy(buf, f->file, len);
+    return (int)len;
+}
+
+static int fake_write_settings(void *ctx, const char *buf, size_t len) {
+    Fake *f = ctx;
+    f->settings_writes++;
+    if (f->writes_fail) return -1;
+    memcpy(f->file, buf, len);
+    f->file_len = (int)len;
+    return 0;
+}
+
 static Fake fake;
 static Framebuffer scratch;
 static Framebuffer expected;
 
-static ClockLayout layout = CLOCK_LAYOUT_D;
+/* What the app finds in the settings file when it starts. */
+static ClockLayout layout = CLOCK_LAYOUT_D; /* the Layout saved last time */
+static const char *raw_file = NULL;         /* if set, the file's exact text instead */
+static int file_absent = 0;
+static int writes_fail = 0;
+
+static void restore_defaults(void) {
+    layout = CLOCK_LAYOUT_D;
+    raw_file = NULL;
+    file_absent = 0;
+    writes_fail = 0;
+}
 
 static void run_with_presses(const Reading *script, int len, int polls, unsigned press_polls) {
     ClockPlatform platform = {fake_read_time, fake_present, fake_keep_awake,
-                              fake_wait, fake_exit_requested, fake_switch_pressed, &fake};
+                              fake_wait, fake_exit_requested, fake_switch_pressed,
+                              fake_read_settings, fake_write_settings, &fake};
     memset(&fake, 0, sizeof fake);
+    if (file_absent) {
+        fake.file_len = -1;
+    } else if (raw_file) {
+        fake.file_len = (int)strlen(raw_file);
+        memcpy(fake.file, raw_file, (size_t)fake.file_len);
+    } else {
+        fake.file_len = (int)settings_format_layout(layout, fake.file);
+    }
+    fake.writes_fail = writes_fail;
     fake.script = script;
     fake.script_len = len;
     fake.polls_before_exit = polls;
     fake.press_polls = press_polls;
-    clock_app_run(&platform, &scratch, layout);
+    clock_app_run(&platform, &scratch);
 }
 
 static void run(const Reading *script, int len, int polls) {
@@ -135,6 +182,88 @@ static void a_press_while_the_clock_is_unreadable_still_switches_the_dashes(void
     run_with_presses(script, 1, 2, 1u << 1);
     CHECK(fake.presents == 2);
     CHECK(last_frame_shows_in(CLOCK_LAYOUT_B, NULL));
+}
+
+/* What the settings file says now, as a Layout. */
+static ClockLayout saved_layout(void) {
+    return settings_parse_layout(fake.file, (size_t)fake.file_len);
+}
+
+static void the_saved_layout_is_shown_at_start(void) {
+    static const Reading script[] = {AT(12, 34, 56)};
+    layout = CLOCK_LAYOUT_B;
+    run(script, 1, 1);
+    CHECK(last_frame_shows_in(CLOCK_LAYOUT_B, &script[0].time));
+    restore_defaults();
+}
+
+static void a_missing_or_unreadable_file_starts_in_the_default_layout(void) {
+    static const Reading script[] = {AT(12, 34, 56)};
+    file_absent = 1;
+    run(script, 1, 1);
+    CHECK(last_frame_shows_in(CLOCK_LAYOUT_DEFAULT, &script[0].time));
+    CHECK(fake.settings_reads == 1);
+    CHECK(fake.settings_writes == 0); /* nothing to save yet */
+    restore_defaults();
+}
+
+static void a_corrupt_file_starts_in_the_default_layout(void) {
+    static const Reading script[] = {AT(12, 34, 56)};
+    raw_file = "layout=Z\n";
+    run(script, 1, 1);
+    CHECK(last_frame_shows_in(CLOCK_LAYOUT_DEFAULT, &script[0].time));
+    raw_file = "garbage\001";
+    run(script, 1, 1);
+    CHECK(last_frame_shows_in(CLOCK_LAYOUT_DEFAULT, &script[0].time));
+    restore_defaults();
+}
+
+static void the_file_is_read_once_at_start_not_on_every_poll(void) {
+    static const Reading script[] = {AT(12, 34, 56)};
+    run(script, 1, 5);
+    CHECK(fake.settings_reads == 1);
+}
+
+static void a_press_saves_the_new_layout(void) {
+    static const Reading script[] = {AT(12, 34, 56)};
+    layout = CLOCK_LAYOUT_D;
+    run_with_presses(script, 1, 3, 1u << 1);
+    CHECK(fake.settings_writes == 1);
+    CHECK(saved_layout() == CLOCK_LAYOUT_B);
+    run_with_presses(script, 1, 3, (1u << 1) | (1u << 2));
+    CHECK(fake.settings_writes == 2);
+    CHECK(saved_layout() == CLOCK_LAYOUT_D);
+    restore_defaults();
+}
+
+static void the_saved_layout_is_what_the_next_start_shows(void) {
+    static const Reading script[] = {AT(12, 34, 56)};
+    layout = CLOCK_LAYOUT_D;
+    run_with_presses(script, 1, 2, 1u << 1);
+    layout = saved_layout(); /* the file this run left behind */
+    run(script, 1, 1);
+    CHECK(last_frame_shows_in(CLOCK_LAYOUT_B, &script[0].time));
+    restore_defaults();
+}
+
+static void nothing_is_written_when_nothing_was_pressed(void) {
+    static const Reading script[] = {AT(12, 34, 56), AT(12, 35, 56)};
+    run(script, 2, 5);
+    CHECK(fake.settings_writes == 0);
+}
+
+/* The settings are a convenience: when the Memory Stick refuses the write,
+ * the clock still switches and keeps running. */
+static void a_failed_write_is_ignored(void) {
+    static const Reading script[] = {AT(12, 34, 56)};
+    layout = CLOCK_LAYOUT_D;
+    writes_fail = 1;
+    run_with_presses(script, 1, 4, (1u << 1) | (1u << 2));
+    CHECK(fake.settings_writes == 2); /* tried on each press, did not give up */
+    CHECK(fake.waits == 4);           /* the loop ran to the end */
+    CHECK(fake.presents == 3);
+    CHECK(last_frame_shows_in(CLOCK_LAYOUT_D, &script[0].time));
+    restore_defaults();
 }
 
 static void a_new_minute_is_presented(void) {
@@ -207,6 +336,14 @@ int main(void) {
     RUN(a_press_switches_the_layout_and_redraws_at_once);
     RUN(a_second_press_switches_back);
     RUN(a_press_while_the_clock_is_unreadable_still_switches_the_dashes);
+    RUN(the_saved_layout_is_shown_at_start);
+    RUN(a_missing_or_unreadable_file_starts_in_the_default_layout);
+    RUN(a_corrupt_file_starts_in_the_default_layout);
+    RUN(the_file_is_read_once_at_start_not_on_every_poll);
+    RUN(a_press_saves_the_new_layout);
+    RUN(the_saved_layout_is_what_the_next_start_shows);
+    RUN(nothing_is_written_when_nothing_was_pressed);
+    RUN(a_failed_write_is_ignored);
     RUN(a_new_minute_is_presented);
     RUN(different_readings_are_never_mistaken_for_each_other);
     RUN(a_new_day_is_presented_even_if_the_time_of_day_repeats);

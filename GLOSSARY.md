@@ -27,3 +27,7 @@ _Avoid_: Calendar view, planner
 **Local time**:
 The date and time of day in the timezone the PSP itself is set to, expected to be UTC+3 (Turkey, no daylight saving).
 _Avoid_: System time, device time
+
+**Settings file**:
+The small text file `settings` next to the EBOOT that remembers the chosen Layout between runs. The app writes it whenever the Layout changes and reads it at start; a missing, unreadable or corrupt file means Layout D, and a failed write never stops the clock.
+_Avoid_: Config, preferences, save file
