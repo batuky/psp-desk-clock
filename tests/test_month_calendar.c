@@ -14,8 +14,8 @@ static LocalTime on(int year, int month, int day) {
 }
 
 static void expect_day(const MonthCells *m, int day, int column, int row) {
-    CHECK(m->cell[day - 1].column == column);
-    CHECK(m->cell[day - 1].row == row);
+    CHECK(month_cell_of_day(m, day)->column == column);
+    CHECK(month_cell_of_day(m, day)->row == row);
 }
 
 static void october_2026_starts_on_a_thursday_and_needs_five_rows(void) {
@@ -197,9 +197,13 @@ static void a_number_looks_the_same_wherever_it_sits(void) {
     draw(&other, &november);
     CHECK(month_calendar_cells(&october, &a) == 1);
     CHECK(month_calendar_cells(&november, &b) == 1);
-    CHECK(a.cell[4].column != b.cell[4].column); /* really in different places */
-    CHECK(same_cell(&fb, a.cell[4].column, a.cell[4].row + 1, &other, b.cell[4].column,
-                    b.cell[4].row + 1));
+    {
+        const MonthCell *in_october = month_cell_of_day(&a, 5);
+        const MonthCell *in_november = month_cell_of_day(&b, 5);
+        CHECK(in_october->column != in_november->column); /* really in different places */
+        CHECK(same_cell(&fb, in_october->column, in_october->row + 1, &other,
+                        in_november->column, in_november->row + 1));
+    }
 }
 
 static void nothing_is_drawn_outside_the_grid(void) {
@@ -257,9 +261,9 @@ static void measure_gaps(int cw, int ch, int *between_digits, int *between_numbe
     CHECK(month_calendar_cells(&now, &m) == 1);
     fb_clear(&fb, PIXEL_BLACK);
     month_calendar_draw(&fb, ORIGIN, ORIGIN, cw, ch, &now);
-    y0 = ORIGIN + (m.cell[19].row + 1) * ch;
+    y0 = ORIGIN + (month_cell_of_day(&m, 20)->row + 1) * ch;
     y1 = y0 + ch;
-    x0 = ORIGIN + m.cell[19].column * cw; /* the 21st is in the next column */
+    x0 = ORIGIN + month_cell_of_day(&m, 20)->column * cw; /* the 21st is in the next column */
     x1 = x0 + cw;
 
     /* Gap inside the 20th: skip the first digit's ink, count the blanks. */
@@ -298,7 +302,8 @@ static void numbers_are_centred_in_their_cells(void) {
     CHECK(month_calendar_cells(&now, &m) == 1);
     for (int i = 0; i < (int)(sizeof SIZES / sizeof SIZES[0]); i++) {
         int cw = SIZES[i][0], ch = SIZES[i][1];
-        int y0 = ORIGIN + (m.cell[19].row + 1) * ch, x0 = ORIGIN + m.cell[19].column * cw;
+        const MonthCell *twentieth = month_cell_of_day(&m, 20);
+        int y0 = ORIGIN + (twentieth->row + 1) * ch, x0 = ORIGIN + twentieth->column * cw;
         int first = -1, last = -1;
         fb_clear(&fb, PIXEL_BLACK);
         month_calendar_draw(&fb, ORIGIN, ORIGIN, cw, ch, &now);

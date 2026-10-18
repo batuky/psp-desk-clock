@@ -97,7 +97,7 @@ static void draw_cell(Framebuffer *fb, const DigitCell *c, int lit_mask) {
 }
 
 /* Stands for a value that is not there; draw_pair shows it as dashes. */
-#define OUT_OF_RANGE (-1)
+#define MISSING_VALUE (-1)
 
 /* Draws a two-digit value, or a dash in both cells when it is out of range. */
 static void draw_pair(Framebuffer *fb, const DigitCell *cells, int value, int max) {
@@ -117,8 +117,8 @@ static void draw_colon(Framebuffer *fb, const TimeDisplayShape *shape, const Dig
 
 void time_display_draw(Framebuffer *fb, const TimeDisplayShape *shape, const LocalTime *now) {
     DigitCell cells[TD_DIGIT_COUNT];
-    int hour = now ? now->hour : OUT_OF_RANGE;
-    int minute = now ? now->minute : OUT_OF_RANGE;
+    int hour = now ? now->hour : MISSING_VALUE;
+    int minute = now ? now->minute : MISSING_VALUE;
 
     time_display_cells(shape, cells);
     draw_pair(fb, &cells[0], hour, 23);

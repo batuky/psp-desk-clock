@@ -68,10 +68,9 @@ void month_calendar_draw(Framebuffer *fb, int x, int y, int cell_w, int cell_h,
                      PIXEL_WHITE);
     if (!month_calendar_cells(now, &cells)) return;
 
-    for (int i = 0; i < cells.days; i++) {
+    for (int day = 1; day <= cells.days; day++) {
         char number[12]; /* room for any int, so psp-gcc cannot see a truncation */
-        int day = i + 1;
-        const MonthCell *at = &cells.cell[i];
+        const MonthCell *at = month_cell_of_day(&cells, day);
         int cell_x = x + at->column * cell_w;
         int cell_y = y + (at->row + 1) * cell_h; /* +1: the header row */
         Pixel color = PIXEL_WHITE;

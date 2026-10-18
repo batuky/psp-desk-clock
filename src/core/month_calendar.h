@@ -25,6 +25,12 @@ typedef struct {
     MonthCell cell[MONTH_CALENDAR_MAX_DAYS];
 } MonthCells;
 
+/* The cell of `day`, counted from 1 as on the calendar; `day` must be 1 to
+ * `days`. */
+static inline const MonthCell *month_cell_of_day(const MonthCells *m, int day) {
+    return &m->cell[day - 1];
+}
+
 /* Lays out the month of `now`. Returns 1 on success, or 0 (leaving `out`
  * untouched) when `now` is NULL or holds a date that does not exist. */
 int month_calendar_cells(const LocalTime *now, MonthCells *out);
