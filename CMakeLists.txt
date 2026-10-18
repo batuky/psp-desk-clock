@@ -10,6 +10,7 @@ add_executable(psp-desk-clock
     src/core/clock_face.c
     src/core/date_line.c
     src/core/month_calendar.c
+    src/core/settings.c
     src/core/time_display.c
 )
 target_include_directories(psp-desk-clock PRIVATE src/core)

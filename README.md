@@ -2,7 +2,7 @@
 
 A desk clock for the Sony PSP, written as PSP homebrew.
 
-> Status: the clock works. Still to come: remembering the chosen Layout and a 24-hour soak test on the device.
+> Status: the clock works. Still to come: a 24-hour soak test on the device.
 
 ## Idea
 
@@ -12,12 +12,11 @@ Run a clock app on a PSP (custom firmware) so the handheld can sit on a desk and
 
 - Shows the time in large seven-segment digits (hours and minutes, no seconds) and the date in Turkish, for example `17.10.2026 Cumartesi`.
 - Two Layouts of the Clock face. **Layout D** (the default) has the time, the date on two lines at the lower left, and a Month calendar at the lower right with today highlighted. **Layout B** has a bigger time with the date on one line and no calendar.
-- Press **L** or **R** to switch between the two Layouts.
+- Press **L** or **R** to switch between the two Layouts. The app remembers the choice in a small `settings` file next to the EBOOT, so it starts in the same Layout next time (Layout D if the file is missing or unreadable).
 - Keeps the screen on and the PSP awake while it runs.
 
 ## Planned
 
-- Remember the chosen Layout across restarts
 - HOME ends the main loop cleanly
 - 24-hour soak test on the device
 

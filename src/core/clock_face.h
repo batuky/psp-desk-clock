@@ -13,6 +13,9 @@ typedef enum {
     CLOCK_LAYOUT_COUNT
 } ClockLayout;
 
+/* The Layout shown when nothing says otherwise. */
+#define CLOCK_LAYOUT_DEFAULT CLOCK_LAYOUT_D
+
 /* The most lines a layout's Date line is split over. */
 #define CLOCK_FACE_MAX_DATE_LINES 2
 
