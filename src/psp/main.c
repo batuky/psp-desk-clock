@@ -27,13 +27,16 @@ PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_USER);
 static Framebuffer frame;
 static ButtonEdge switch_edge;
 
-/* HOME: the exit callback ends the program itself, so the loop never has to
- * ask. */
+/* HOME: the exit callback runs on its own thread and only raises this flag;
+ * the main loop sees it through psp_exit_requested and returns, and main then
+ * ends the game. */
+static volatile int exit_flag;
+
 static int exit_callback(int arg1, int arg2, void *common) {
     (void)arg1;
     (void)arg2;
     (void)common;
-    sceKernelExitGame();
+    exit_flag = 1;
     return 0;
 }
 
@@ -82,7 +85,7 @@ static void psp_wait(void *ctx) {
 
 static int psp_exit_requested(void *ctx) {
     (void)ctx;
-    return 0;
+    return exit_flag;
 }
 
 /* L or R is the Layout switch; a held button counts once, and L and R held
@@ -122,5 +125,6 @@ int main(void) {
                           PSP_DISPLAY_SETBUF_NEXTFRAME);
 
     clock_app_run(&platform, &frame, CLOCK_LAYOUT_D);
+    sceKernelExitGame();
     return 0;
 }
