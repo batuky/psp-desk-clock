@@ -18,6 +18,9 @@ typedef struct {
 #define AT(h, m, s) READING_ON(2026, 10, 17, h, m, s)
 #define UNREADABLE {{0, 0, 0, 0, 0, 0}, 0}
 
+/* Room for a settings file longer than the app will read. */
+#define FAKE_FILE_BYTES (4 * SETTINGS_MAX_BYTES)
+
 typedef struct {
     const Reading *script;
     int script_len;
@@ -27,7 +30,7 @@ typedef struct {
     Framebuffer last_frame;
     /* The settings file: `file` holds `file_len` bytes, or is absent when
      * file_len < 0. A write replaces it, unless writes_fail. */
-    char file[SETTINGS_MAX_BYTES];
+    char file[FAKE_FILE_BYTES];
     int file_len;
     int writes_fail;
     int settings_reads, settings_writes;
@@ -224,6 +227,21 @@ static void a_corrupt_file_starts_in_the_default_layout(void) {
     restore_defaults();
 }
 
+/* The app reads at most SETTINGS_MAX_BYTES; a file longer than that is read
+ * from its head only. */
+static void a_file_larger_than_the_app_reads_is_judged_by_its_head(void) {
+    static const Reading script[] = {AT(12, 34, 56)};
+    static const char big[] = "layout=B\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+    CHECK(sizeof big > SETTINGS_MAX_BYTES);
+    raw_file = big;
+    run(script, 1, 1);
+    CHECK(last_frame_shows_in(CLOCK_LAYOUT_B, &script[0].time));
+    raw_file = "layout="; /* cut off mid-write */
+    run(script, 1, 1);
+    CHECK(last_frame_shows_in(CLOCK_LAYOUT_DEFAULT, &script[0].time));
+    restore_defaults();
+}
+
 static void the_file_is_read_once_at_start_not_on_every_poll(void) {
     static const Reading script[] = {AT(12, 34, 56)};
     run(script, 1, 5);
@@ -345,6 +363,7 @@ int main(void) {
     RUN(the_saved_layout_is_shown_at_start);
     RUN(a_missing_or_unreadable_file_starts_in_the_default_layout);
     RUN(a_corrupt_file_starts_in_the_default_layout);
+    RUN(a_file_larger_than_the_app_reads_is_judged_by_its_head);
     RUN(the_file_is_read_once_at_start_not_on_every_poll);
     RUN(a_press_saves_the_new_layout);
     RUN(the_saved_layout_is_what_the_next_start_shows);

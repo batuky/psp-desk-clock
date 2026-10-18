@@ -144,7 +144,8 @@ static int psp_write_settings(void *ctx, const char *buf, size_t len) {
     fd = sceIoOpen(settings_path, PSP_O_WRONLY | PSP_O_CREAT | PSP_O_TRUNC, 0777);
     if (fd < 0) return -1;
     written = sceIoWrite(fd, buf, len);
-    sceIoClose(fd);
+    /* A failed close can mean the data never reached the card. */
+    if (sceIoClose(fd) < 0) return -1;
     return written == (int)len ? 0 : -1;
 }
 
