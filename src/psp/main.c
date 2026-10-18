@@ -28,7 +28,8 @@ static Framebuffer frame;
 static ButtonEdge switch_edge;
 
 /* HOME: the exit callback runs on its own thread and only raises this flag;
- * the main loop sees it through psp_exit_requested, returns, and main exits. */
+ * the main loop sees it through psp_exit_requested and returns, and main then
+ * ends the game. */
 static volatile int exit_flag;
 
 static int exit_callback(int arg1, int arg2, void *common) {
