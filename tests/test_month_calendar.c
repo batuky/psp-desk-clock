@@ -109,10 +109,6 @@ static void a_missing_or_impossible_date_gives_no_layout(void) {
 
 static Framebuffer fb, other;
 
-static void clear(Framebuffer *f) {
-    for (int i = 0; i < FB_WIDTH * FB_HEIGHT; i++) f->pixels[i] = PIXEL_BLACK;
-}
-
 static Pixel px(const Framebuffer *f, int x, int y) { return f->pixels[y * FB_WIDTH + x]; }
 
 /* Grid row 0 is the header; week rows start at 1. */
@@ -137,7 +133,7 @@ static int same_cell(const Framebuffer *a, int a_column, int a_row, const Frameb
 }
 
 static void draw(Framebuffer *f, const LocalTime *now) {
-    clear(f);
+    fb_clear(f, PIXEL_BLACK);
     month_calendar_draw(f, GX, GY, CW, CH, now);
 }
 
@@ -258,7 +254,7 @@ static void measure_gaps(int cw, int ch, int *between_digits, int *between_numbe
     int y0, y1, x0, x1, x, ink_end_of_20 = -1, ink_start_of_21 = -1;
 
     CHECK(month_calendar_cells(&now, &m) == 1);
-    clear(&fb);
+    fb_clear(&fb, PIXEL_BLACK);
     month_calendar_draw(&fb, ORIGIN, ORIGIN, cw, ch, &now);
     y0 = ORIGIN + (m.row[20] + 1) * ch;
     y1 = y0 + ch;
@@ -303,7 +299,7 @@ static void numbers_are_centred_in_their_cells(void) {
         int cw = SIZES[i][0], ch = SIZES[i][1];
         int y0 = ORIGIN + (m.row[20] + 1) * ch, x0 = ORIGIN + m.column[20] * cw;
         int first = -1, last = -1;
-        clear(&fb);
+        fb_clear(&fb, PIXEL_BLACK);
         month_calendar_draw(&fb, ORIGIN, ORIGIN, cw, ch, &now);
         for (int x = x0; x < x0 + cw; x++)
             if (column_has_ink(x, y0, y0 + ch)) {
@@ -323,8 +319,8 @@ static void the_calendar_matches_the_golden_images(void) {
     const char *small_path = "tests/golden/month_calendar.ppm";
     const char *large_path = "tests/golden/month_calendar_large.ppm";
     LocalTime now = on(2026, 10, 17);
-    clear(&fb);
-    clear(&other);
+    fb_clear(&fb, PIXEL_BLACK);
+    fb_clear(&other, PIXEL_BLACK);
     month_calendar_draw(&fb, GX, GY, CW, CH, &now);
     month_calendar_draw(&other, 8, 8, 42, 28, &now);
     if (getenv("UPDATE_GOLDEN")) {

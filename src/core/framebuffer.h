@@ -18,6 +18,11 @@ typedef struct {
     Pixel pixels[FB_WIDTH * FB_HEIGHT];
 } Framebuffer;
 
+/* Paints the whole screen `color`. */
+static inline void fb_clear(Framebuffer *fb, Pixel color) {
+    for (int i = 0; i < FB_WIDTH * FB_HEIGHT; i++) fb->pixels[i] = color;
+}
+
 /* Fills the rectangle with its top-left corner at (x, y), clipped at the
  * screen edges. */
 static inline void fb_fill_rect(Framebuffer *fb, int x, int y, int w, int h, Pixel color) {

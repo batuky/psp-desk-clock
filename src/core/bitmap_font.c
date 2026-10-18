@@ -105,6 +105,18 @@ int bitmap_font_draw_text(Framebuffer *fb, int x, int y, int scale, const char *
     return x;
 }
 
+int bitmap_font_text_width(const char *utf8, int scale) {
+    const unsigned char *cursor = (const unsigned char *)utf8;
+    int chars = 0;
+    if (scale < 1) scale = 1;
+
+    while (*cursor) {
+        next_code(&cursor);
+        chars++;
+    }
+    return chars == 0 ? 0 : chars * FONT_ADVANCE * scale - scale;
+}
+
 int bitmap_font_can_draw(const char *utf8) {
     const unsigned char *cursor = (const unsigned char *)utf8;
     while (*cursor)

@@ -18,15 +18,11 @@ static void use_shape(const TimeDisplayShape *which) {
     time_display_cells(shape, cells);
 }
 
-static void clear(void) {
-    for (int i = 0; i < FB_WIDTH * FB_HEIGHT; i++) fb.pixels[i] = PIXEL_BLACK;
-}
-
 /* Draws onto a black screen. The seconds vary between renders only to prove
  * they are never shown. */
 static void render(int h, int m) {
     LocalTime now = {2026, 10, 17, h, m, (h * 7 + m * 13) % 60};
-    clear();
+    fb_clear(&fb, PIXEL_BLACK);
     time_display_draw(&fb, shape, &now);
 }
 
@@ -123,7 +119,7 @@ static void minutes_show_their_digits(void) {
 static void out_of_range_components_show_a_dash(void) {
     LocalTime now = {2026, 10, 17, 24, 34, 56};
     /* Each bad component becomes a dash; a good one next to it still renders. */
-    clear();
+    fb_clear(&fb, PIXEL_BLACK);
     time_display_draw(&fb, shape, &now);
     expect_cell(0, DASH);
     expect_cell(1, DASH);
@@ -131,13 +127,13 @@ static void out_of_range_components_show_a_dash(void) {
 
     now.hour = -1;
     now.minute = 60;
-    clear();
+    fb_clear(&fb, PIXEL_BLACK);
     time_display_draw(&fb, shape, &now);
     for (int cell = 0; cell < TD_DIGIT_COUNT; cell++) expect_cell(cell, DASH);
 
     now.hour = 12;
     now.minute = 100;
-    clear();
+    fb_clear(&fb, PIXEL_BLACK);
     time_display_draw(&fb, shape, &now);
     expect_digits(0, 12);
     expect_cell(2, DASH);
@@ -145,7 +141,7 @@ static void out_of_range_components_show_a_dash(void) {
 }
 
 static void an_unreadable_clock_shows_a_dash_in_every_cell(void) {
-    clear();
+    fb_clear(&fb, PIXEL_BLACK);
     time_display_draw(&fb, shape, NULL);
     for (int cell = 0; cell < TD_DIGIT_COUNT; cell++) expect_cell(cell, DASH);
 }
@@ -157,7 +153,7 @@ static void seconds_are_not_shown(void) {
     first = fb;
     for (int sec = 0; sec < 60; sec++) {
         LocalTime now = {2026, 10, 17, 12, 34, sec};
-        clear();
+        fb_clear(&fb, PIXEL_BLACK);
         time_display_draw(&fb, shape, &now);
         CHECK(memcmp(&fb, &first, sizeof fb) == 0);
     }

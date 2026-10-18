@@ -12,11 +12,10 @@
 #define DATE_LINE_GAP 8 /* between the two lines of layout D's Date line */
 #define EDGE_MARGIN 16
 
-/* The longest text each Date line region has to hold, in characters:
- * "31.08.2026 Pazartesi", "31.08.2026", "Pazartesi". */
-#define WHOLE_DATE_CHARS 20
-#define DATE_CHARS 10
-#define WEEKDAY_CHARS 9
+/* The longest text each Date line region has to hold. */
+#define WHOLE_DATE_SAMPLE "31.08.2026 Pazartesi"
+#define DATE_SAMPLE "31.08.2026"
+#define WEEKDAY_SAMPLE "Pazartesi"
 
 /* Layout D's Month calendar: 7 columns, and a header plus the most week rows
  * a month can need. */
@@ -32,7 +31,7 @@ static const TimeDisplayShape *shape_of(ClockLayout layout) {
     return layout == CLOCK_LAYOUT_B ? &SHAPE_B : &SHAPE_D;
 }
 
-static int text_width(int chars) { return chars * FONT_ADVANCE * DATE_SCALE - DATE_SCALE; }
+static int text_width(const char *text) { return bitmap_font_text_width(text, DATE_SCALE); }
 
 static ScreenRect time_region(const TimeDisplayShape *shape) {
     DigitCell cells[TD_DIGIT_COUNT];
@@ -54,8 +53,8 @@ void clock_face_regions(ClockLayout layout, ClockFaceRegions *out) {
     out->time = time_region(shape);
 
     if (layout == CLOCK_LAYOUT_B) {
-        ScreenRect line = {(FB_WIDTH - text_width(WHOLE_DATE_CHARS)) / 2,
-                           below + (free_h - DATE_TEXT_H) / 2, text_width(WHOLE_DATE_CHARS),
+        ScreenRect line = {(FB_WIDTH - text_width(WHOLE_DATE_SAMPLE)) / 2,
+                           below + (free_h - DATE_TEXT_H) / 2, text_width(WHOLE_DATE_SAMPLE),
                            DATE_TEXT_H};
         out->date_line_count = 1;
         out->date_line[0] = line;
@@ -67,9 +66,9 @@ void clock_face_regions(ClockLayout layout, ClockFaceRegions *out) {
     {
         int block_h = 2 * DATE_TEXT_H + DATE_LINE_GAP;
         int block_y = below + (free_h - block_h) / 2;
-        ScreenRect date = {EDGE_MARGIN, block_y, text_width(DATE_CHARS), DATE_TEXT_H};
+        ScreenRect date = {EDGE_MARGIN, block_y, text_width(DATE_SAMPLE), DATE_TEXT_H};
         ScreenRect weekday = {EDGE_MARGIN, block_y + DATE_TEXT_H + DATE_LINE_GAP,
-                              text_width(WEEKDAY_CHARS), DATE_TEXT_H};
+                              text_width(WEEKDAY_SAMPLE), DATE_TEXT_H};
         ScreenRect calendar = {FB_WIDTH - EDGE_MARGIN - CAL_W, below + (free_h - CAL_H) / 2,
                                CAL_W, CAL_H};
         out->date_line_count = 2;
@@ -83,35 +82,30 @@ void clock_face_regions(ClockLayout layout, ClockFaceRegions *out) {
 /* Draws `text` inside `region`, centred or against its left edge. */
 static void draw_date_text(Framebuffer *fb, const ScreenRect *region, int centred,
                            const char *text) {
-    int chars = 0;
-    for (const char *p = text; *p; p++)
-        if (((unsigned char)*p & 0xC0) != 0x80) chars++; /* count characters, not UTF-8 bytes */
-    {
-        int x = region->x + (centred ? (region->w - text_width(chars)) / 2 : 0);
-        bitmap_font_draw_text(fb, x, region->y, DATE_SCALE, text, PIXEL_WHITE);
-    }
+    int x = region->x + (centred ? (region->w - text_width(text)) / 2 : 0);
+    bitmap_font_draw_text(fb, x, region->y, DATE_SCALE, text, PIXEL_WHITE);
 }
 
 void clock_face_render(Framebuffer *fb, ClockLayout layout, const LocalTime *now) {
-    ClockFaceRegions r;
+    ClockFaceRegions regions;
     char text[DATE_LINE_MAX];
 
-    clock_face_regions(layout, &r);
-    for (int i = 0; i < FB_WIDTH * FB_HEIGHT; i++) fb->pixels[i] = PIXEL_BLACK;
+    clock_face_regions(layout, &regions);
+    fb_clear(fb, PIXEL_BLACK);
     time_display_draw(fb, shape_of(layout), now);
 
     date_line_text(now, text, sizeof text);
-    if (r.date_line_count == 1) {
-        draw_date_text(fb, &r.date_line[0], 1, text);
+    if (regions.date_line_count == 1) {
+        draw_date_text(fb, &regions.date_line[0], 1, text);
     } else {
         /* The Date line is "date weekday"; layout D puts them on two lines.
          * An unreadable clock has no weekday: its dashes take the first line. */
         char *space = strchr(text, ' ');
         if (space) *space = '\0';
-        draw_date_text(fb, &r.date_line[0], 0, text);
-        if (space) draw_date_text(fb, &r.date_line[1], 0, space + 1);
+        draw_date_text(fb, &regions.date_line[0], 0, text);
+        if (space) draw_date_text(fb, &regions.date_line[1], 0, space + 1);
     }
 
-    if (r.has_calendar)
-        month_calendar_draw(fb, r.calendar.x, r.calendar.y, CAL_CELL_W, CAL_CELL_H, now);
+    if (regions.has_calendar)
+        month_calendar_draw(fb, regions.calendar.x, regions.calendar.y, CAL_CELL_W, CAL_CELL_H, now);
 }

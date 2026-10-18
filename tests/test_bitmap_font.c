@@ -7,10 +7,6 @@
 
 static Framebuffer fb;
 
-static void clear(void) {
-    for (int i = 0; i < FB_WIDTH * FB_HEIGHT; i++) fb.pixels[i] = PIXEL_BLACK;
-}
-
 static Pixel at(int x, int y) { return fb.pixels[y * FB_WIDTH + x]; }
 
 static int lit_pixels(void) {
@@ -35,7 +31,7 @@ static const char *const SUPPORTED[] = {
 /* One character drawn at scale 1 into a 5x8 picture: 40 characters, '#' lit
  * and '.' dark, row by row. */
 static void picture(const char *ch, char out[FONT_GLYPH_W * FONT_GLYPH_H + 1]) {
-    clear();
+    fb_clear(&fb, PIXEL_BLACK);
     bitmap_font_draw_text(&fb, 10, 20, 1, ch, PIXEL_WHITE);
     for (int r = 0; r < FONT_GLYPH_H; r++)
         for (int c = 0; c < FONT_GLYPH_W; c++)
@@ -55,14 +51,14 @@ static int row_is_blank(const char *pic, int row) {
 }
 
 static void drawing_text_lights_pixels_and_returns_the_next_position(void) {
-    clear();
+    fb_clear(&fb, PIXEL_BLACK);
     int next = bitmap_font_draw_text(&fb, 10, 20, 1, "8", PIXEL_WHITE);
     CHECK(lit_pixels() > 0);
     CHECK(next == 10 + FONT_ADVANCE);
 }
 
 static void every_character_advances_one_cell_whatever_its_bytes(void) {
-    clear();
+    fb_clear(&fb, PIXEL_BLACK);
     CHECK(bitmap_font_draw_text(&fb, 0, 0, 1, "Cumartesi", PIXEL_WHITE) == 9 * FONT_ADVANCE);
     CHECK(bitmap_font_draw_text(&fb, 0, 0, 2, "Cumartesi", PIXEL_WHITE) == 9 * FONT_ADVANCE * 2);
     CHECK(bitmap_font_draw_text(&fb, 5, 0, 3, CCEDILLA "ar" SCEDILLA "amba", PIXEL_WHITE) ==
@@ -70,14 +66,24 @@ static void every_character_advances_one_cell_whatever_its_bytes(void) {
     CHECK(bitmap_font_draw_text(&fb, 7, 0, 1, "", PIXEL_WHITE) == 7);
 }
 
+static void text_width_is_the_ink_the_drawing_covers(void) {
+    /* One glyph is FONT_GLYPH_W wide; each further character adds FONT_ADVANCE. */
+    CHECK(bitmap_font_text_width("", 3) == 0);
+    CHECK(bitmap_font_text_width("8", 1) == FONT_GLYPH_W);
+    CHECK(bitmap_font_text_width("Cumartesi", 3) == 9 * FONT_ADVANCE * 3 - 3);
+    CHECK(bitmap_font_text_width(CCEDILLA "ar" SCEDILLA "amba", 1) == 8 * FONT_ADVANCE - 1);
+    /* It counts characters the way drawing does, so a stray byte is one box. */
+    CHECK(bitmap_font_text_width("1\xFF" "2", 1) == 3 * FONT_ADVANCE - 1);
+}
+
 static void scaling_turns_every_font_pixel_into_a_solid_block(void) {
     static Framebuffer small;
-    clear();
+    fb_clear(&fb, PIXEL_BLACK);
     bitmap_font_draw_text(&fb, 4, 4, 1, "8" CCEDILLA, PIXEL_WHITE);
     memcpy(&small, &fb, sizeof small);
     int small_lit = lit_pixels();
 
-    clear();
+    fb_clear(&fb, PIXEL_BLACK);
     bitmap_font_draw_text(&fb, 4, 4, 3, "8" CCEDILLA, PIXEL_WHITE);
     CHECK(lit_pixels() == small_lit * 9);
     /* Font pixel (c, r) at scale 1 is the 3x3 block at (4 + 3c, 4 + 3r). */
@@ -167,7 +173,7 @@ static void a_character_without_a_glyph_is_drawn_as_a_box(void) {
         CHECK(strcmp(unknown, known) != 0); /* and not mistaken for a real glyph */
     }
     /* Damaged UTF-8 is one box per bad byte and never reads past the end. */
-    clear();
+    fb_clear(&fb, PIXEL_BLACK);
     CHECK(bitmap_font_draw_text(&fb, 0, 0, 1, "\x80", PIXEL_WHITE) == FONT_ADVANCE);
     CHECK(bitmap_font_draw_text(&fb, 0, 0, 1, "\xC3", PIXEL_WHITE) == FONT_ADVANCE);
     CHECK(!bitmap_font_can_draw("\xC3"));
@@ -185,7 +191,7 @@ static void forbidden_utf8_is_never_taken_for_a_real_character(void) {
         "\xF4\x90\x80\x80", /* U+110000, past the last code point */
     };
     for (int i = 0; i < (int)(sizeof FORBIDDEN / sizeof FORBIDDEN[0]); i++) {
-        clear();
+        fb_clear(&fb, PIXEL_BLACK);
         CHECK(!bitmap_font_can_draw(FORBIDDEN[i]));
         CHECK(bitmap_font_draw_text(&fb, 0, 0, 1, FORBIDDEN[i], PIXEL_WHITE) ==
               (int)strlen(FORBIDDEN[i]) * FONT_ADVANCE);
@@ -209,7 +215,7 @@ static void the_date_line_alphabet_can_be_drawn(void) {
  * committing. */
 static void the_font_matches_the_golden_image(void) {
     const char *path = "tests/golden/font_sample.ppm";
-    clear();
+    fb_clear(&fb, PIXEL_BLACK);
     bitmap_font_draw_text(&fb, 8, 8, 3, "17.10.2026 Cumartesi", PIXEL_WHITE);
     bitmap_font_draw_text(&fb, 8, 44, 3, "Pazartesi Sal" DOTLESS_I, PIXEL_WHITE);
     bitmap_font_draw_text(&fb, 8, 80, 3, CCEDILLA "ar" SCEDILLA "amba Per" SCEDILLA "embe", PIXEL_WHITE);
@@ -224,6 +230,7 @@ static void the_font_matches_the_golden_image(void) {
 int main(void) {
     RUN(drawing_text_lights_pixels_and_returns_the_next_position);
     RUN(every_character_advances_one_cell_whatever_its_bytes);
+    RUN(text_width_is_the_ink_the_drawing_covers);
     RUN(scaling_turns_every_font_pixel_into_a_solid_block);
     RUN(every_supported_glyph_is_drawn_and_all_are_different);
     RUN(turkish_letters_are_their_plain_letter_plus_a_mark);

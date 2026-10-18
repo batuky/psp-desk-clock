@@ -21,10 +21,6 @@ static void render(ClockLayout layout, const LocalTime *now) {
     clock_face_render(&fb, layout, now);
 }
 
-static void clear(Framebuffer *f) {
-    for (int i = 0; i < FB_WIDTH * FB_HEIGHT; i++) f->pixels[i] = PIXEL_BLACK;
-}
-
 static Pixel at(int x, int y) { return fb.pixels[y * FB_WIDTH + x]; }
 
 static int rect_on_screen(const ScreenRect *r) {
@@ -206,7 +202,7 @@ static void the_time_shows_hours_and_minutes_without_seconds(void) {
 
 /* The Date line text in a region is exactly what the font draws for it. */
 static void expect_text_at(const ScreenRect *r, const char *text) {
-    clear(&other);
+    fb_clear(&other, PIXEL_BLACK);
     bitmap_font_draw_text(&other, r->x, r->y, 3, text, PIXEL_WHITE);
     CHECK(same_inside(&fb, &other, r));
 }
@@ -249,7 +245,7 @@ static void layout_d_draws_the_month_calendar_in_its_region(void) {
     LocalTime now = on(2026, 10, 17, 12, 34);
     clock_face_regions(CLOCK_LAYOUT_D, &r);
     render(CLOCK_LAYOUT_D, &now);
-    clear(&other);
+    fb_clear(&other, PIXEL_BLACK);
     month_calendar_draw(&other, r.calendar.x, r.calendar.y, 30, 17, &now);
     CHECK(same_inside(&fb, &other, &r.calendar));
 }
