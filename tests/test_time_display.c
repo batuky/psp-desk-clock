@@ -1,16 +1,12 @@
 #include <string.h>
 
 #include "minitest.h"
+#include "pinned_shapes.h"
 #include "time_display.h"
 
 static Framebuffer fb;
 
-/* The two shapes the Clock face uses (layouts B and D), spelled out here so
- * the tests do not depend on the compositor. */
-static const TimeDisplayShape SHAPE_B = {84, 130, 12, 3, 12};
-static const TimeDisplayShape SHAPE_D = {80, 120, 11, 3, 8};
-
-static const TimeDisplayShape *shape = &SHAPE_B;
+static const TimeDisplayShape *shape = &PINNED_SHAPE_B;
 static DigitCell cells[TD_DIGIT_COUNT];
 
 static void use_shape(const TimeDisplayShape *which) {
@@ -267,8 +263,8 @@ static void run_all(const TimeDisplayShape *which) {
 
 int main(void) {
     puts("-- shape of layout B");
-    run_all(&SHAPE_B);
+    run_all(&PINNED_SHAPE_B);
     puts("-- shape of layout D");
-    run_all(&SHAPE_D);
+    run_all(&PINNED_SHAPE_D);
     return mt_report();
 }

@@ -5,6 +5,7 @@
 #include "clock_face.h"
 #include "minitest.h"
 #include "month_calendar.h"
+#include "pinned_shapes.h"
 #include "ppm.h"
 
 static Framebuffer fb;
@@ -32,8 +33,11 @@ static int rects_overlap(const ScreenRect *a, const ScreenRect *b) {
     return a->x < b->x + b->w && b->x < a->x + a->w && a->y < b->y + b->h && b->y < a->y + a->h;
 }
 
+/* The time, every Date line and the calendar: the most pieces a layout has. */
+#define MAX_PIECES (1 + CLOCK_FACE_MAX_DATE_LINES + 1)
+
 /* Every piece of a layout as a flat list, so checks can treat them alike. */
-static int pieces(const ClockFaceRegions *r, const ScreenRect *out[4]) {
+static int pieces(const ClockFaceRegions *r, const ScreenRect *out[MAX_PIECES]) {
     int n = 0;
     out[n++] = &r->time;
     for (int i = 0; i < r->date_line_count; i++) out[n++] = &r->date_line[i];
@@ -81,7 +85,7 @@ static int ink_box(const ScreenRect *r, int *left, int *right) {
     return found;
 }
 
-static const ClockLayout LAYOUTS[2] = {CLOCK_LAYOUT_B, CLOCK_LAYOUT_D};
+static const ClockLayout LAYOUTS[CLOCK_LAYOUT_COUNT] = {CLOCK_LAYOUT_B, CLOCK_LAYOUT_D};
 
 /* --- Where the pieces go ------------------------------------------------ */
 
@@ -89,10 +93,10 @@ static void layout_b_is_the_time_and_one_centred_date_line(void) {
     ClockFaceRegions r;
     clock_face_regions(CLOCK_LAYOUT_B, &r);
     /* Digits 84x130, top at y=12, centred. */
-    CHECK(r.time.y == 12 && r.time.h == 130);
-    /* Four 84 px digits, two 8 px gaps, and the colon's column (8 px gap plus
-     * twice the 12 px bars). */
-    CHECK(r.time.w == 4 * 84 + 2 * 8 + 8 + 2 * 12);
+    CHECK(r.time.y == PINNED_SHAPE_B.top && r.time.h == PINNED_SHAPE_B.digit_h);
+    /* Four digits, two 8 px gaps, and the colon's column (8 px gap plus
+     * twice the bar thickness). */
+    CHECK(r.time.w == 4 * PINNED_SHAPE_B.digit_w + 2 * 8 + 8 + 2 * PINNED_SHAPE_B.thickness);
     CHECK(r.time.x - (FB_WIDTH - r.time.x - r.time.w) <= 1);
     CHECK((FB_WIDTH - r.time.x - r.time.w) - r.time.x <= 1);
     CHECK(r.date_line_count == 1);
@@ -103,14 +107,24 @@ static void layout_b_is_the_time_and_one_centred_date_line(void) {
     CHECK(abs((r.date_line[0].x + r.date_line[0].w / 2) - (r.time.x + r.time.w / 2)) <= 1);
 }
 
+static void a_value_that_is_not_a_layout_gets_layout_d(void) {
+    ClockFaceRegions d, bad;
+    clock_face_regions(CLOCK_LAYOUT_D, &d);
+    clock_face_regions(CLOCK_LAYOUT_COUNT, &bad);
+    CHECK(bad.time.y == d.time.y && bad.time.w == d.time.w);
+    CHECK(bad.date_line_count == d.date_line_count && bad.has_calendar == d.has_calendar);
+    clock_face_regions((ClockLayout)-1, &bad);
+    CHECK(bad.date_line_count == d.date_line_count && bad.has_calendar == d.has_calendar);
+}
+
 static void layout_d_is_the_time_the_date_lower_left_and_the_calendar_lower_right(void) {
     ClockFaceRegions r;
     clock_face_regions(CLOCK_LAYOUT_D, &r);
     /* Digits 80x120, top at y=8, centred. */
-    CHECK(r.time.y == 8 && r.time.h == 120);
-    /* Four 80 px digits, two 8 px gaps, and the colon's column (8 px gap plus
-     * twice the 11 px bars). */
-    CHECK(r.time.w == 4 * 80 + 2 * 8 + 8 + 2 * 11);
+    CHECK(r.time.y == PINNED_SHAPE_D.top && r.time.h == PINNED_SHAPE_D.digit_h);
+    /* Four digits, two 8 px gaps, and the colon's column (8 px gap plus
+     * twice the bar thickness). */
+    CHECK(r.time.w == 4 * PINNED_SHAPE_D.digit_w + 2 * 8 + 8 + 2 * PINNED_SHAPE_D.thickness);
     CHECK(abs((r.time.x + r.time.w / 2) - FB_WIDTH / 2) <= 1);
     CHECK(r.date_line_count == 2);
     CHECK(r.has_calendar == 1);
@@ -129,9 +143,9 @@ static void layout_d_is_the_time_the_date_lower_left_and_the_calendar_lower_righ
 }
 
 static void every_piece_is_on_screen(void) {
-    for (int l = 0; l < 2; l++) {
+    for (int l = 0; l < CLOCK_LAYOUT_COUNT; l++) {
         ClockFaceRegions r;
-        const ScreenRect *p[4];
+        const ScreenRect *p[MAX_PIECES];
         int n;
         clock_face_regions(LAYOUTS[l], &r);
         n = pieces(&r, p);
@@ -140,9 +154,9 @@ static void every_piece_is_on_screen(void) {
 }
 
 static void no_two_pieces_overlap(void) {
-    for (int l = 0; l < 2; l++) {
+    for (int l = 0; l < CLOCK_LAYOUT_COUNT; l++) {
         ClockFaceRegions r;
-        const ScreenRect *p[4];
+        const ScreenRect *p[MAX_PIECES];
         int n;
         clock_face_regions(LAYOUTS[l], &r);
         n = pieces(&r, p);
@@ -157,9 +171,9 @@ static void no_two_pieces_overlap(void) {
  * with five, covering every weekday, plus an unreadable clock, nothing is
  * drawn outside the pieces' rectangles. */
 static void drawing_stays_inside_the_pieces(void) {
-    for (int l = 0; l < 2; l++) {
+    for (int l = 0; l < CLOCK_LAYOUT_COUNT; l++) {
         ClockFaceRegions r;
-        const ScreenRect *p[4];
+        const ScreenRect *p[MAX_PIECES];
         int n;
         clock_face_regions(LAYOUTS[l], &r);
         n = pieces(&r, p);
@@ -178,9 +192,9 @@ static void drawing_stays_inside_the_pieces(void) {
 
 static void every_piece_draws_something(void) {
     LocalTime now = on(2026, 10, 17, 12, 34);
-    for (int l = 0; l < 2; l++) {
+    for (int l = 0; l < CLOCK_LAYOUT_COUNT; l++) {
         ClockFaceRegions r;
-        const ScreenRect *p[4];
+        const ScreenRect *p[MAX_PIECES];
         int n;
         clock_face_regions(LAYOUTS[l], &r);
         n = pieces(&r, p);
@@ -192,7 +206,7 @@ static void every_piece_draws_something(void) {
 static void the_time_shows_hours_and_minutes_without_seconds(void) {
     LocalTime a = on(2026, 10, 17, 12, 34), b = on(2026, 10, 17, 12, 34);
     b.second = 59;
-    for (int l = 0; l < 2; l++) {
+    for (int l = 0; l < CLOCK_LAYOUT_COUNT; l++) {
         render(LAYOUTS[l], &a);
         other = fb;
         render(LAYOUTS[l], &b);
@@ -286,7 +300,7 @@ static void an_unreadable_clock_shows_dashes_and_only_the_calendar_header(void) 
 
 static void the_background_is_black(void) {
     LocalTime now = on(2026, 10, 17, 12, 34);
-    for (int l = 0; l < 2; l++) {
+    for (int l = 0; l < CLOCK_LAYOUT_COUNT; l++) {
         render(LAYOUTS[l], &now);
         CHECK_HEX(at(0, 0), PIXEL_BLACK);
         CHECK_HEX(at(FB_WIDTH - 1, FB_HEIGHT - 1), PIXEL_BLACK);
@@ -315,6 +329,7 @@ static void layout_d_matches_the_golden_image(void) {
 int main(void) {
     RUN(layout_b_is_the_time_and_one_centred_date_line);
     RUN(layout_d_is_the_time_the_date_lower_left_and_the_calendar_lower_right);
+    RUN(a_value_that_is_not_a_layout_gets_layout_d);
     RUN(every_piece_is_on_screen);
     RUN(no_two_pieces_overlap);
     RUN(drawing_stays_inside_the_pieces);

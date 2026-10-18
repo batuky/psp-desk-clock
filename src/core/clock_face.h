@@ -9,8 +9,12 @@
 
 typedef enum {
     CLOCK_LAYOUT_B, /* big time and date only */
-    CLOCK_LAYOUT_D  /* big time, date and calendar */
+    CLOCK_LAYOUT_D, /* big time, date and calendar */
+    CLOCK_LAYOUT_COUNT
 } ClockLayout;
+
+/* The most lines a layout's Date line is split over. */
+#define CLOCK_FACE_MAX_DATE_LINES 2
 
 typedef struct {
     int x, y, w, h;
@@ -21,7 +25,7 @@ typedef struct {
 typedef struct {
     ScreenRect time;
     int date_line_count;      /* 1: the whole Date line; 2: the date, then the weekday */
-    ScreenRect date_line[2];
+    ScreenRect date_line[CLOCK_FACE_MAX_DATE_LINES];
     int has_calendar;         /* 0 when the layout has no Month calendar */
     ScreenRect calendar;      /* only meaningful when has_calendar */
 } ClockFaceRegions;

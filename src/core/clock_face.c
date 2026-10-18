@@ -24,11 +24,21 @@
 #define CAL_W (CALENDAR_COLUMNS * CAL_CELL_W)
 #define CAL_H ((1 + CALENDAR_MAX_ROWS) * CAL_CELL_H)
 
-static const TimeDisplayShape SHAPE_B = {84, 130, 12, 3, 12};
-static const TimeDisplayShape SHAPE_D = {80, 120, 11, 3, 8};
+/* What differs between the Layouts. A value that is not a Layout gets
+ * layout D, the default. */
+typedef struct {
+    TimeDisplayShape shape;
+    int split_date; /* 1: the date over the weekday, lower left, plus the Month
+                       calendar; 0: the whole Date line centred under the time */
+} LayoutSpec;
 
-static const TimeDisplayShape *shape_of(ClockLayout layout) {
-    return layout == CLOCK_LAYOUT_B ? &SHAPE_B : &SHAPE_D;
+static const LayoutSpec SPECS[CLOCK_LAYOUT_COUNT] = {
+    [CLOCK_LAYOUT_B] = {{84, 130, 12, 3, 12}, 0},
+    [CLOCK_LAYOUT_D] = {{80, 120, 11, 3, 8}, 1},
+};
+
+static const LayoutSpec *spec_of(ClockLayout layout) {
+    return &SPECS[(unsigned)layout < CLOCK_LAYOUT_COUNT ? layout : CLOCK_LAYOUT_D];
 }
 
 static int text_width(const char *text) { return bitmap_font_text_width(text, DATE_SCALE); }
@@ -45,14 +55,15 @@ static ScreenRect time_region(const TimeDisplayShape *shape) {
 }
 
 void clock_face_regions(ClockLayout layout, ClockFaceRegions *out) {
-    const TimeDisplayShape *shape = shape_of(layout);
+    const LayoutSpec *spec = spec_of(layout);
+    const TimeDisplayShape *shape = &spec->shape;
     int below = shape->top + shape->digit_h; /* top of the free area under the time */
     int free_h = FB_HEIGHT - below;
 
     memset(out, 0, sizeof *out);
     out->time = time_region(shape);
 
-    if (layout == CLOCK_LAYOUT_B) {
+    if (!spec->split_date) {
         ScreenRect line = {(FB_WIDTH - text_width(WHOLE_DATE_SAMPLE)) / 2,
                            below + (free_h - DATE_TEXT_H) / 2, text_width(WHOLE_DATE_SAMPLE),
                            DATE_TEXT_H};
@@ -79,10 +90,12 @@ void clock_face_regions(ClockLayout layout, ClockFaceRegions *out) {
     }
 }
 
+typedef enum { ALIGN_LEFT, ALIGN_CENTRE } Align;
+
 /* Draws `text` inside `region`, centred or against its left edge. */
-static void draw_date_text(Framebuffer *fb, const ScreenRect *region, int centred,
+static void draw_date_text(Framebuffer *fb, const ScreenRect *region, Align align,
                            const char *text) {
-    int x = region->x + (centred ? (region->w - text_width(text)) / 2 : 0);
+    int x = region->x + (align == ALIGN_CENTRE ? (region->w - text_width(text)) / 2 : 0);
     bitmap_font_draw_text(fb, x, region->y, DATE_SCALE, text, PIXEL_WHITE);
 }
 
@@ -92,18 +105,18 @@ void clock_face_render(Framebuffer *fb, ClockLayout layout, const LocalTime *now
 
     clock_face_regions(layout, &regions);
     fb_clear(fb, PIXEL_BLACK);
-    time_display_draw(fb, shape_of(layout), now);
+    time_display_draw(fb, &spec_of(layout)->shape, now);
 
     date_line_text(now, text, sizeof text);
     if (regions.date_line_count == 1) {
-        draw_date_text(fb, &regions.date_line[0], 1, text);
+        draw_date_text(fb, &regions.date_line[0], ALIGN_CENTRE, text);
     } else {
         /* The Date line is "date weekday"; layout D puts them on two lines.
          * An unreadable clock has no weekday: its dashes take the first line. */
         char *space = strchr(text, ' ');
         if (space) *space = '\0';
-        draw_date_text(fb, &regions.date_line[0], 0, text);
-        if (space) draw_date_text(fb, &regions.date_line[1], 0, space + 1);
+        draw_date_text(fb, &regions.date_line[0], ALIGN_LEFT, text);
+        if (space) draw_date_text(fb, &regions.date_line[1], ALIGN_LEFT, space + 1);
     }
 
     if (regions.has_calendar)
