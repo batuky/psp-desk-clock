@@ -14,7 +14,7 @@ add_executable(psp-desk-clock
 )
 target_include_directories(psp-desk-clock PRIVATE src/core)
 target_compile_options(psp-desk-clock PRIVATE -Wall -Wextra)
-target_link_libraries(psp-desk-clock PRIVATE pspdisplay pspge psppower psprtc)
+target_link_libraries(psp-desk-clock PRIVATE pspctrl pspdisplay pspge psppower psprtc)
 
 create_pbp_file(
     TARGET psp-desk-clock

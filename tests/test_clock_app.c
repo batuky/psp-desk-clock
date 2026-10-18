@@ -21,7 +21,8 @@ typedef struct {
     const Reading *script;
     int script_len;
     int polls_before_exit;
-    int reads, waits, awake_calls, presents;
+    unsigned press_polls; /* bit n set: the Layout switch was pressed before poll n (n < 32) */
+    int reads, waits, awake_calls, presents, switch_checks;
     Framebuffer last_frame;
 } Fake;
 
@@ -45,28 +46,41 @@ static int fake_exit_requested(void *ctx) {
     return f->waits >= f->polls_before_exit;
 }
 
+static int fake_switch_pressed(void *ctx) {
+    Fake *f = ctx;
+    int poll = f->switch_checks++;
+    return poll < 32 && ((f->press_polls >> poll) & 1u);
+}
+
 static Fake fake;
 static Framebuffer scratch;
 static Framebuffer expected;
 
 static ClockLayout layout = CLOCK_LAYOUT_D;
 
-static void run(const Reading *script, int len, int polls) {
+static void run_with_presses(const Reading *script, int len, int polls, unsigned press_polls) {
     ClockPlatform platform = {fake_read_time, fake_present, fake_keep_awake,
-                              fake_wait, fake_exit_requested, &fake};
+                              fake_wait, fake_exit_requested, fake_switch_pressed, &fake};
     memset(&fake, 0, sizeof fake);
     fake.script = script;
     fake.script_len = len;
     fake.polls_before_exit = polls;
+    fake.press_polls = press_polls;
     clock_app_run(&platform, &scratch, layout);
+}
+
+static void run(const Reading *script, int len, int polls) {
+    run_with_presses(script, len, polls, 0);
 }
 
 /* The last presented frame is the Clock face for `now` in the current layout
  * (NULL: the dashes shown when the clock can't be read). */
-static int last_frame_shows(const LocalTime *now) {
-    clock_face_render(&expected, layout, now);
+static int last_frame_shows_in(ClockLayout which, const LocalTime *now) {
+    clock_face_render(&expected, which, now);
     return memcmp(&fake.last_frame, &expected, sizeof expected) == 0;
 }
+
+static int last_frame_shows(const LocalTime *now) { return last_frame_shows_in(layout, now); }
 
 static void first_frame_is_presented_immediately(void) {
     static const Reading script[] = {AT(12, 34, 56)};
@@ -95,6 +109,32 @@ static void the_chosen_layout_is_the_one_presented(void) {
     CHECK(last_frame_shows(&script[0].time));
     layout = CLOCK_LAYOUT_D;
     CHECK(!last_frame_shows(&script[0].time)); /* the two layouts really differ */
+}
+
+/* Pressing the Layout switch shows the other Layout at once, even though the
+ * time has not changed. */
+static void a_press_switches_the_layout_and_redraws_at_once(void) {
+    static const Reading script[] = {AT(12, 34, 56)};
+    layout = CLOCK_LAYOUT_D;
+    run_with_presses(script, 1, 2, 1u << 1); /* pressed before the second poll */
+    CHECK(fake.presents == 2);
+    CHECK(last_frame_shows_in(CLOCK_LAYOUT_B, &script[0].time));
+}
+
+static void a_second_press_switches_back(void) {
+    static const Reading script[] = {AT(12, 34, 56)};
+    layout = CLOCK_LAYOUT_D;
+    run_with_presses(script, 1, 3, (1u << 1) | (1u << 2));
+    CHECK(fake.presents == 3);
+    CHECK(last_frame_shows_in(CLOCK_LAYOUT_D, &script[0].time));
+}
+
+static void a_press_while_the_clock_is_unreadable_still_switches_the_dashes(void) {
+    static const Reading script[] = {UNREADABLE};
+    layout = CLOCK_LAYOUT_D;
+    run_with_presses(script, 1, 2, 1u << 1);
+    CHECK(fake.presents == 2);
+    CHECK(last_frame_shows_in(CLOCK_LAYOUT_B, NULL));
 }
 
 static void a_new_minute_is_presented(void) {
@@ -135,6 +175,7 @@ static void the_loop_stops_when_exit_is_requested(void) {
     CHECK(fake.presents == 0);
     CHECK(fake.reads == 0);
     CHECK(fake.awake_calls == 0);
+    CHECK(fake.switch_checks == 0);
 }
 
 static void an_unreadable_clock_shows_dashes_and_the_loop_carries_on(void) {
@@ -162,6 +203,9 @@ int main(void) {
     RUN(same_time_is_not_presented_twice);
     RUN(a_new_second_is_not_presented);
     RUN(the_chosen_layout_is_the_one_presented);
+    RUN(a_press_switches_the_layout_and_redraws_at_once);
+    RUN(a_second_press_switches_back);
+    RUN(a_press_while_the_clock_is_unreadable_still_switches_the_dashes);
     RUN(a_new_minute_is_presented);
     RUN(different_readings_are_never_mistaken_for_each_other);
     RUN(a_new_day_is_presented_even_if_the_time_of_day_repeats);

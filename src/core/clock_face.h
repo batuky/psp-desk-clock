@@ -30,6 +30,10 @@ typedef struct {
     ScreenRect calendar;      /* only meaningful when has_calendar */
 } ClockFaceRegions;
 
+/* The Layout after `layout`, wrapping round to the first. A value that is
+ * not a Layout counts as layout D. */
+ClockLayout clock_face_next_layout(ClockLayout layout);
+
 /* Where the pieces of `layout` go. Fixed for the lifetime of the program. */
 void clock_face_regions(ClockLayout layout, ClockFaceRegions *out);
 

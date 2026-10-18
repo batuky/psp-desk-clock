@@ -37,8 +37,14 @@ static const LayoutSpec SPECS[CLOCK_LAYOUT_COUNT] = {
     [CLOCK_LAYOUT_D] = {{80, 120, 11, 3, 8}, 1},
 };
 
-static const LayoutSpec *spec_of(ClockLayout layout) {
-    return &SPECS[(unsigned)layout < CLOCK_LAYOUT_COUNT ? layout : CLOCK_LAYOUT_D];
+static ClockLayout valid_layout(ClockLayout layout) {
+    return (unsigned)layout < CLOCK_LAYOUT_COUNT ? layout : CLOCK_LAYOUT_D;
+}
+
+static const LayoutSpec *spec_of(ClockLayout layout) { return &SPECS[valid_layout(layout)]; }
+
+ClockLayout clock_face_next_layout(ClockLayout layout) {
+    return (valid_layout(layout) + 1) % CLOCK_LAYOUT_COUNT;
 }
 
 static int text_width(const char *text) { return bitmap_font_text_width(text, DATE_SCALE); }

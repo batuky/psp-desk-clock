@@ -117,6 +117,14 @@ static void a_value_that_is_not_a_layout_gets_layout_d(void) {
     CHECK(bad.date_line_count == d.date_line_count && bad.has_calendar == d.has_calendar);
 }
 
+static void the_next_layout_cycles_through_all_of_them(void) {
+    CHECK(clock_face_next_layout(CLOCK_LAYOUT_B) == CLOCK_LAYOUT_D);
+    CHECK(clock_face_next_layout(CLOCK_LAYOUT_D) == CLOCK_LAYOUT_B);
+    /* A value that is not a Layout counts as layout D, so its next is B. */
+    CHECK(clock_face_next_layout(CLOCK_LAYOUT_COUNT) == CLOCK_LAYOUT_B);
+    CHECK(clock_face_next_layout((ClockLayout)-1) == CLOCK_LAYOUT_B);
+}
+
 static void layout_d_is_the_time_the_date_lower_left_and_the_calendar_lower_right(void) {
     ClockFaceRegions r;
     clock_face_regions(CLOCK_LAYOUT_D, &r);
@@ -330,6 +338,7 @@ int main(void) {
     RUN(layout_b_is_the_time_and_one_centred_date_line);
     RUN(layout_d_is_the_time_the_date_lower_left_and_the_calendar_lower_right);
     RUN(a_value_that_is_not_a_layout_gets_layout_d);
+    RUN(the_next_layout_cycles_through_all_of_them);
     RUN(every_piece_is_on_screen);
     RUN(no_two_pieces_overlap);
     RUN(drawing_stays_inside_the_pieces);
