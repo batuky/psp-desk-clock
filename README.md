@@ -2,7 +2,7 @@
 
 A desk clock for the Sony PSP, written as PSP homebrew.
 
-> Status: the clock works. Still to come: a 24-hour soak test on the device.
+> Status: the clock works and HOME exits cleanly. Still to come: a 24-hour soak test on the device.
 
 ## Idea
 
@@ -17,7 +17,6 @@ Run a clock app on a PSP (custom firmware) so the handheld can sit on a desk and
 
 ## Planned
 
-- HOME ends the main loop cleanly
 - 24-hour soak test on the device
 
 See the open issues for the full list.
