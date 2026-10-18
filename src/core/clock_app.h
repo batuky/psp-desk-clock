@@ -4,6 +4,7 @@
 #ifndef CLOCK_APP_H
 #define CLOCK_APP_H
 
+#include "clock_face.h"
 #include "framebuffer.h"
 #include "local_time.h"
 
@@ -22,8 +23,8 @@ typedef struct {
     void *ctx;
 } ClockPlatform;
 
-/* Runs until exit_requested says so. `fb` is scratch space the loop renders
- * into before each present. */
-void clock_app_run(const ClockPlatform *platform, Framebuffer *fb);
+/* Runs until exit_requested says so, showing the Clock face in `layout`. `fb`
+ * is scratch space the loop renders into before each present. */
+void clock_app_run(const ClockPlatform *platform, Framebuffer *fb, ClockLayout layout);
 
 #endif

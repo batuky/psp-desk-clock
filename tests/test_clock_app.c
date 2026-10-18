@@ -1,9 +1,9 @@
 #include <string.h>
 
 #include "clock_app.h"
+#include "clock_face.h"
 #include "local_time.h"
 #include "minitest.h"
-#include "time_display.h"
 
 /* A scripted stand-in for the hardware. Each read_time call returns the next
  * scripted reading (the last one repeats). The loop quits after
@@ -49,6 +49,8 @@ static Fake fake;
 static Framebuffer scratch;
 static Framebuffer expected;
 
+static ClockLayout layout = CLOCK_LAYOUT_D;
+
 static void run(const Reading *script, int len, int polls) {
     ClockPlatform platform = {fake_read_time, fake_present, fake_keep_awake,
                               fake_wait, fake_exit_requested, &fake};
@@ -56,13 +58,13 @@ static void run(const Reading *script, int len, int polls) {
     fake.script = script;
     fake.script_len = len;
     fake.polls_before_exit = polls;
-    clock_app_run(&platform, &scratch);
+    clock_app_run(&platform, &scratch, layout);
 }
 
-/* The last presented frame is the Time display for `now` (NULL: the dashes
- * shown when the clock can't be read). */
+/* The last presented frame is the Clock face for `now` in the current layout
+ * (NULL: the dashes shown when the clock can't be read). */
 static int last_frame_shows(const LocalTime *now) {
-    time_display_render(&expected, now);
+    clock_face_render(&expected, layout, now);
     return memcmp(&fake.last_frame, &expected, sizeof expected) == 0;
 }
 
@@ -79,14 +81,23 @@ static void same_time_is_not_presented_twice(void) {
     CHECK(fake.presents == 1);
 }
 
-static void a_new_second_is_presented(void) {
-    static const Reading script[] = {AT(12, 34, 56), AT(12, 34, 56), AT(12, 34, 57)};
+/* The Clock face has no seconds, so a new second changes nothing on screen. */
+static void a_new_second_is_not_presented(void) {
+    static const Reading script[] = {AT(12, 34, 56), AT(12, 34, 57), AT(12, 34, 0)};
     run(script, 3, 3);
-    CHECK(fake.presents == 2);
-    CHECK(last_frame_shows(&script[2].time));
+    CHECK(fake.presents == 1);
 }
 
-static void a_new_minute_is_presented_even_if_the_second_repeats(void) {
+static void the_chosen_layout_is_the_one_presented(void) {
+    static const Reading script[] = {AT(12, 34, 56)};
+    layout = CLOCK_LAYOUT_B;
+    run(script, 1, 1);
+    CHECK(last_frame_shows(&script[0].time));
+    layout = CLOCK_LAYOUT_D;
+    CHECK(!last_frame_shows(&script[0].time)); /* the two layouts really differ */
+}
+
+static void a_new_minute_is_presented(void) {
     static const Reading script[] = {AT(12, 34, 56), AT(12, 35, 56)};
     run(script, 2, 2);
     CHECK(fake.presents == 2);
@@ -102,8 +113,8 @@ static void different_readings_are_never_mistaken_for_each_other(void) {
     CHECK(last_frame_shows(&script[1].time));
 }
 
-/* The Date line will show the date, so a new day must redraw even when the
- * time of day is the same as before. */
+/* The Date line shows the date, so a new day must redraw even when the time
+ * of day is the same as before. */
 static void a_new_day_is_presented_even_if_the_time_of_day_repeats(void) {
     static const Reading script[] = {ON(2026, 10, 17, 12, 0, 0), ON(2026, 10, 18, 12, 0, 0)};
     run(script, 2, 2);
@@ -130,7 +141,7 @@ static void an_unreadable_clock_shows_dashes_and_the_loop_carries_on(void) {
     static const Reading script[] = {UNREADABLE, UNREADABLE, AT(12, 34, 56)};
     run(script, 3, 1);
     CHECK(fake.presents == 1);
-    CHECK(last_frame_shows(NULL)); /* dashes, not 00:00:00 */
+    CHECK(last_frame_shows(NULL)); /* dashes, not 00:00 */
     run(script, 3, 3);             /* two failed reads, then a good one */
     CHECK(fake.presents == 2);     /* dashes once, then the real time */
     CHECK(last_frame_shows(&script[2].time));
@@ -149,8 +160,9 @@ static void the_time_comes_back_after_dashes_even_if_it_is_unchanged(void) {
 int main(void) {
     RUN(first_frame_is_presented_immediately);
     RUN(same_time_is_not_presented_twice);
-    RUN(a_new_second_is_presented);
-    RUN(a_new_minute_is_presented_even_if_the_second_repeats);
+    RUN(a_new_second_is_not_presented);
+    RUN(the_chosen_layout_is_the_one_presented);
+    RUN(a_new_minute_is_presented);
     RUN(different_readings_are_never_mistaken_for_each_other);
     RUN(a_new_day_is_presented_even_if_the_time_of_day_repeats);
     RUN(the_screen_is_kept_awake_on_every_poll);

@@ -14,9 +14,11 @@ typedef struct {
     int second; /* 0-59 */
 } LocalTime;
 
-static inline int local_time_equal(const LocalTime *a, const LocalTime *b) {
+/* True when both readings show the same Clock face: same date, hour and
+ * minute. The second is not displayed, so it is not compared. */
+static inline int local_time_same_minute(const LocalTime *a, const LocalTime *b) {
     return a->year == b->year && a->month == b->month && a->day == b->day &&
-           a->hour == b->hour && a->minute == b->minute && a->second == b->second;
+           a->hour == b->hour && a->minute == b->minute;
 }
 
 #endif

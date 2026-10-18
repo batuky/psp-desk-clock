@@ -21,6 +21,11 @@
 int bitmap_font_draw_text(Framebuffer *fb, int x, int y, int scale, const char *utf8,
                           Pixel color);
 
+/* How many pixels wide `utf8` is when drawn at `scale`: from the first
+ * glyph's left edge to the last one's right edge, without the trailing
+ * space. 0 for an empty string. Counts characters the way drawing does. */
+int bitmap_font_text_width(const char *utf8, int scale);
+
 /* 1 when every character of `utf8` has a real glyph, else 0. */
 int bitmap_font_can_draw(const char *utf8);
 
