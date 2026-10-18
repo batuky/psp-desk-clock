@@ -69,7 +69,7 @@ void month_calendar_draw(Framebuffer *fb, int x, int y, int cell_w, int cell_h,
     if (!month_calendar_cells(now, &cells)) return;
 
     for (int i = 0; i < cells.days; i++) {
-        char number[3];
+        char number[12]; /* room for any int, so psp-gcc cannot see a truncation */
         int day = i + 1;
         const MonthCell *at = &cells.cell[i];
         int cell_x = x + at->column * cell_w;
@@ -80,8 +80,7 @@ void month_calendar_draw(Framebuffer *fb, int x, int y, int cell_w, int cell_h,
             fb_fill_rect(fb, cell_x + 1, cell_y + 1, cell_w - 2, cell_h - 2, PIXEL_WHITE);
             color = PIXEL_BLACK;
         }
-        /* A day is at most 31; the modulo tells psp-gcc the number fits `number`. */
-        snprintf(number, sizeof number, "%u", (unsigned)day % 100u);
+        snprintf(number, sizeof number, "%d", day);
         draw_centred(fb, cell_x, cell_y, cell_w, cell_h, scale, number, (int)strlen(number), color);
     }
 }
