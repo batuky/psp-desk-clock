@@ -1,6 +1,7 @@
 /* PSP layer: the only code that touches the hardware. It fills in the
  * ClockPlatform that the pure core's main loop runs against (ADR 0001) and
  * stays in user mode (ADR 0002). */
+#include <pspctrl.h>
 #include <pspdisplay.h>
 #include <pspge.h>
 #include <pspkernel.h>
@@ -8,6 +9,7 @@
 #include <psprtc.h>
 #include <string.h>
 
+#include "button_edge.h"
 #include "clock_app.h"
 
 PSP_MODULE_INFO("psp-desk-clock", PSP_MODULE_USER, 1, 0);
@@ -23,6 +25,7 @@ PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_USER);
 #define CLOCK_BUS 16
 
 static Framebuffer frame;
+static ButtonEdge switch_edge;
 
 /* HOME: the exit callback ends the program itself, so the loop never has to
  * ask. */
@@ -82,12 +85,22 @@ static int psp_exit_requested(void *ctx) {
     return 0;
 }
 
+/* L or R switches the layout; a held button counts once. */
+static int psp_switch_pressed(void *ctx) {
+    SceCtrlData pad;
+    (void)ctx;
+    sceCtrlPeekBufferPositive(&pad, 1);
+    return button_edge_pressed(&switch_edge, (pad.Buttons & (PSP_CTRL_LTRIGGER | PSP_CTRL_RTRIGGER)) != 0);
+}
+
 int main(void) {
     Pixel *vram = (Pixel *)(0x40000000u | (unsigned int)sceGeEdramGetAddr());
     ClockPlatform platform = {psp_read_time, psp_present, psp_keep_awake,
-                              psp_wait, psp_exit_requested, vram};
+                              psp_wait, psp_exit_requested, psp_switch_pressed, vram};
 
     setup_exit_callback();
+    sceCtrlSetSamplingCycle(0);
+    sceCtrlSetSamplingMode(PSP_CTRL_MODE_DIGITAL);
     scePowerSetClockFrequency(CLOCK_PLL, CLOCK_CPU, CLOCK_BUS);
     sceDisplaySetMode(0, FB_WIDTH, FB_HEIGHT);
     sceDisplaySetFrameBuf(vram, VRAM_STRIDE, PSP_DISPLAY_PIXEL_FORMAT_8888,

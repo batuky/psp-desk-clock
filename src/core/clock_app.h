@@ -20,6 +20,9 @@ typedef struct {
     void (*wait)(void *ctx);
     /* Returns non-zero once the user asked to quit (HOME). */
     int (*exit_requested)(void *ctx);
+    /* Returns non-zero when the user pressed the layout switch (L or R) since
+     * the last call: once per press, not while the button is held. */
+    int (*switch_pressed)(void *ctx);
     void *ctx;
 } ClockPlatform;
 
