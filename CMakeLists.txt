@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.12)
 project(psp-desk-clock C)
 
 # Build with the PSP toolchain: tools/dev.sh make eboot
@@ -13,8 +13,8 @@ add_executable(psp-desk-clock
 )
 target_include_directories(psp-desk-clock PRIVATE src/core)
 target_compile_options(psp-desk-clock PRIVATE -Wall -Wextra)
-# The pure core is held to the same bar as core-psp-check; main.c talks to the
-# PSP SDK, which is not pedantic-clean, so it only gets the warnings above.
+# The pure core gets the warning flags core-psp-check uses (minus -std=c11).
+# main.c talks to the PSP SDK, so it only gets the warnings above.
 set_source_files_properties(${CORE_SOURCES} PROPERTIES COMPILE_OPTIONS "-Werror;-pedantic")
 target_link_libraries(psp-desk-clock PRIVATE pspctrl pspdisplay pspge psppower psprtc)
 
