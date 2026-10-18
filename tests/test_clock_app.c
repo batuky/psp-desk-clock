@@ -13,8 +13,8 @@ typedef struct {
     int readable;
 } Reading;
 
-#define ON(y, mo, d, h, m, s) {{(y), (mo), (d), (h), (m), (s)}, 1}
-#define AT(h, m, s) ON(2026, 10, 17, h, m, s)
+#define READING_ON(y, mo, d, h, m, s) {{(y), (mo), (d), (h), (m), (s)}, 1}
+#define AT(h, m, s) READING_ON(2026, 10, 17, h, m, s)
 #define UNREADABLE {{0, 0, 0, 0, 0, 0}, 0}
 
 typedef struct {
@@ -156,7 +156,8 @@ static void different_readings_are_never_mistaken_for_each_other(void) {
 /* The Date line shows the date, so a new day must redraw even when the time
  * of day is the same as before. */
 static void a_new_day_is_presented_even_if_the_time_of_day_repeats(void) {
-    static const Reading script[] = {ON(2026, 10, 17, 12, 0, 0), ON(2026, 10, 18, 12, 0, 0)};
+    static const Reading script[] = {READING_ON(2026, 10, 17, 12, 0, 0),
+                                     READING_ON(2026, 10, 18, 12, 0, 0)};
     run(script, 2, 2);
     CHECK(fake.presents == 2);
 }

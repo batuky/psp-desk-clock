@@ -21,8 +21,8 @@
  * a month can need. */
 #define CAL_CELL_W 30
 #define CAL_CELL_H 17
-#define CAL_W (CALENDAR_COLUMNS * CAL_CELL_W)
-#define CAL_H ((1 + CALENDAR_MAX_ROWS) * CAL_CELL_H)
+#define CAL_W (MONTH_CALENDAR_COLUMNS * CAL_CELL_W)
+#define CAL_H ((1 + MONTH_CALENDAR_MAX_ROWS) * CAL_CELL_H)
 
 /* What differs between the Layouts. A value that is not a Layout gets
  * layout D, the default. */
@@ -126,5 +126,6 @@ void clock_face_render(Framebuffer *fb, ClockLayout layout, const LocalTime *now
     }
 
     if (regions.has_calendar)
-        month_calendar_draw(fb, regions.calendar.x, regions.calendar.y, CAL_CELL_W, CAL_CELL_H, now);
+        month_calendar_draw(fb, regions.calendar.x, regions.calendar.y, CAL_CELL_W, CAL_CELL_H,
+                            now);
 }
